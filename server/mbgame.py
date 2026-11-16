@@ -248,7 +248,11 @@ class GameSession:
         if opcode == 2011:                       # 登录
             self.account = str(req.get('keyId') or '')
             log('login account=%s' % self.account)
-            return self.reply(conn, 2011, {'result': 0})
+            self.reply(conn, 2011, {'result': 0})
+            # 官方流程：登录成功后由服务端【主动推送】2002 区服列表，
+            # 客户端 onLogin 成功分支不发 2002 请求，只等推送。
+            return self.reply(conn, 2002, {'platformList': [
+                {'serverId': SERVER_ID, 'serverName': SERVER_NAME, 'status': 1}]})
         if opcode == 2002:                       # 区服列表
             return self.reply(conn, 2002, {'platformList': [
                 {'serverId': SERVER_ID, 'serverName': SERVER_NAME, 'status': 1}]})
@@ -262,12 +266,15 @@ class GameSession:
         if opcode == 3001:                       # 网关登录
             self.account = str(req.get('accountId') or self.account or '123')
             role = get_role(self.account)
-            if role:
-                log('gate login ok account=%s role=%r' % (self.account, role.get('name')))
-                self.reply(conn, 3001, {'result': 0})
-                return self.reply(conn, 3003, {})          # 就绪推送
-            log('gate login: no role for %s -> -52 (create)' % self.account)
-            return self.reply(conn, 3001, {'result': -52})
+            if not role:
+                # 私服便利：无角色时自动创建默认角色，跳过建角面板
+                role = upsert_role(self.account,
+                                   {'name': '训练师' + self.account[-4:], 'face_id': 1,
+                                    'faceID': 1, 'init_faceID': 1, 'lev': 1})
+                log('auto-created role for %s' % self.account)
+            log('gate login ok account=%s role=%r' % (self.account, role.get('name')))
+            self.reply(conn, 3001, {'result': 0})
+            return self.reply(conn, 3003, {})          # 就绪推送
         if opcode == 3002:                       # 建角
             name = str(req.get('name') or '训练师')[:16]
             face = int(req.get('face_id') or 1)

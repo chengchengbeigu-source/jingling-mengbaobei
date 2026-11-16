@@ -36,6 +36,47 @@ PROXY_CTX.check_hostname = False
 PROXY_CTX.verify_mode = ssl.CERT_NONE
 UA_GAME = 'Mozilla/5.0 (Linux; Android 14) MBGameApp/1.0'
 
+# ---------- 运行时补丁（镜像保持官方原样，响应时动态应用；幂等） ----------
+# 1) project_*.json: sdk_class_name 改为内置本地 SDK，跳过 QuickSDK 云端初始化
+#    （否则卡死在 AnySDK 容器的“获取用户信息中...”加载屏）
+# 2) game.min*.js: 注入自动登录(123/123) + 自动选区进游戏（免 UI 操作）
+_JS_ANCHOR = 'cc.log("sdk init successful")})},'
+_JS_PATCHED = ('cc.log("sdk init successful");'
+               'setTimeout(function(){'
+               'try{localStorage.setItem("agree4Provacy","true")}catch(e){}'
+               'try{var s=window._loginState;if(s&&s.loginContainer&&s.loginContainer.nameText){'
+               's.loginContainer.nameText.setText("123");s.loginContainer.passText.setText("123");'
+               's._onLoginBtn();cc.log("MB autologin fired")}}catch(e){cc.log("MB autologin err "+e)}'
+               'var n=0,t=setInterval(function(){try{var ss=window._selectServerState;'
+               'if(ss&&ss.serverId&&ss._onEnterBtn){clearInterval(t);'
+               'try{ss.privacyBtn&&ss.privacyBtn.setSelected(!0)}catch(e){}'
+               'try{localStorage.setItem("agree4Provacy","true")}catch(e){}'
+               'ss._onEnterBtn();cc.log("MB autoenter fired server="+ss.serverId)}'
+               'else if(++n>60){clearInterval(t);cc.log("MB autoenter timeout")}}'
+               'catch(e){clearInterval(t);cc.log("MB autoenter err "+e)}},500)},4000)})},')
+
+def apply_runtime_patches(rel, data):
+    """按请求路径对镜像内容打补丁；返回 bytes。对已打补丁的内容幂等。"""
+    try:
+        name = os.path.basename(rel)
+        if name.startswith('project_') and name.endswith('.json'):
+            txt = data.decode('utf-8')
+            txt = re.sub(r'"sdk_class_name"\s*:\s*"H5_CYGameSDK"',
+                         '"sdk_class_name":"H5_LocalSDK"', txt)
+            return txt.encode('utf-8')
+        if name.startswith('game.min') and name.endswith('.js'):
+            txt = data.decode('utf-8')
+            if 'MB autologin fired' in txt:      # 已含补丁
+                return data
+            if _JS_ANCHOR in txt:                # 官方原样 → 注入
+                assert txt.count(_JS_ANCHOR) == 1
+                txt = txt.replace(_JS_ANCHOR, _JS_PATCHED)
+                log('runtime patch applied: %s (autologin+autoenter)' % name)
+            return txt.encode('utf-8')
+    except Exception as e:
+        log('runtime patch %s ERR %r' % (rel, e))
+    return data
+
 # ---------- 本地账号体系（游戏页 /demo/* 契约） ----------
 ACCOUNTS_FILE = os.path.join(HERE, 'accounts.json')
 ACC_LOCK = threading.Lock()
@@ -328,6 +369,7 @@ class Handler(BaseHTTPRequestHandler):
         if os.path.isfile(local):
             ext = os.path.splitext(local)[1].lower()
             data = open(local, 'rb').read()
+            data = apply_runtime_patches(path.lstrip('/'), data)
             return self._send(200, data, MIME.get(ext, 'application/octet-stream'))
         return self._send(404, b'asset not found', 'text/plain')
 
