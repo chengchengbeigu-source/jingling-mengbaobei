@@ -26,7 +26,7 @@ with open(SCHEMA_FILE, encoding='utf-8') as f:
 SCALARS = {'int8', 'uint8', 'int16', 'uint16', 'int32', 'uint32',
            'int64', 'uint64', 'number', 'string'}
 SERVER_ID = 34001
-SERVER_NAME = '精灵萌宝贝'
+SERVER_NAME = '本地一区'
 PLATFORM_ID = 304
 GATE = ('127.0.0.1', 20311)
 WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
@@ -267,11 +267,9 @@ class GameSession:
             self.account = str(req.get('accountId') or self.account or '123')
             role = get_role(self.account)
             if not role:
-                # 私服便利：无角色时自动创建默认角色，跳过建角面板
-                role = upsert_role(self.account,
-                                   {'name': '训练师' + self.account[-4:], 'face_id': 1,
-                                    'faceID': 1, 'init_faceID': 1, 'lev': 1})
-                log('auto-created role for %s' % self.account)
+                # 与官方一致：无角色回 -52，客户端弹出建角面板（选性别/起名）
+                log('gate login no-role account=%s -> create panel' % self.account)
+                return self.reply(conn, 3001, {'result': -52})
             log('gate login ok account=%s role=%r' % (self.account, role.get('name')))
             self.reply(conn, 3001, {'result': 0})
             return self.reply(conn, 3003, {})          # 就绪推送
