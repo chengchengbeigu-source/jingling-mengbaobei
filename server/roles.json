@@ -1,1 +1,15 @@
-{}
+{
+ "123": {
+  "roleId": 100001,
+  "lev": 1,
+  "created": 1794865676,
+  "name": "讲究司各脱",
+  "face_id": 2,
+  "faceID": 2,
+  "init_faceID": 2,
+  "energy": 999,
+  "gold": 1000000,
+  "coin": 10000,
+  "guides_done": []
+ }
+}

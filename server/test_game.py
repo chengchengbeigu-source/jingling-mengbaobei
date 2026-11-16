@@ -101,7 +101,7 @@ def main():
     print('[1] auth connection')
     w = WS()
     w.send(2011, {'platformId': 304, 'channel': '100304', 'game_channel_id': '100304',
-                  'keyId': '123', 'verify_time': 0, 'sign': '', 'isGuest': 0, 'OS': 1})
+                  'keyId': 'test_bot', 'verify_time': 0, 'sign': '', 'isGuest': 0, 'OS': 1})
     show(*w.recv())
     w.send(2002); show(*w.recv())
     w.send(2003, {'serverId': 34001}); show(*w.recv())
@@ -109,7 +109,7 @@ def main():
 
     print('[2] gate connection (no role -> -52)')
     w = WS()
-    w.send(3001, {'platformId': 304, 'accountId': '123', 'md5': 't', 'os': 1,
+    w.send(3001, {'platformId': 304, 'accountId': 'test_bot', 'md5': 't', 'os': 1,
                   'osVersion': '17', 'relogin': 0, 'channel': '100304'})
     show(*w.recv())
     print('[3] create role')

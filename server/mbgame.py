@@ -285,7 +285,7 @@ class GameSession:
         if opcode == 3004:                       # 进游戏 → roleInfo
             role = get_role(self.account or '123') or {}
             log('enter game account=%s role=%r' % (self.account, role.get('name')))
-            return self.reply(conn, 3004, {'roleInfo': {
+            self.reply(conn, 3004, {'roleInfo': {
                 'roleId': role.get('roleId', 100001),
                 'name': role.get('name', '训练师'),
                 'lev': role.get('lev', 1),
@@ -294,6 +294,24 @@ class GameSession:
                 'coin': role.get('coin', 10000),
                 'faceID': role.get('faceID', 1),
                 'init_faceID': role.get('init_faceID', 1)}})
+            # 官方流程：进游戏后服务端主动推送副本初始化与新手引导列表。
+            # GuideModel 等三个来源（ROLE_INIT/DUNGEON_INIT/GUIDE_LSIT）到齐后
+            # 才会派发 NET_INIT_OK 并启动新手引导（领 starter 宠物等）。
+            self.reply(conn, 14001, {'type': 0, 'dungeon_list': []})
+            return self.reply(conn, 4009, {'guideList': role.get('guides_done', [])})
+        if opcode == 14001:                      # 副本初始化（客户端请求/服务端推送同号）
+            return self.reply(conn, 14001, {'type': int(req.get('type') or 0),
+                                            'dungeon_list': []})
+        if opcode == 4008:                       # 新手引导完成上报（无响应 schema）
+            gid = int(req.get('guideId') or 0)
+            role = get_role(self.account or '123')
+            if role is not None and gid:
+                done = role.setdefault('guides_done', [])
+                if gid not in done:
+                    done.append(gid)
+                    upsert_role(self.account or '123', {'guides_done': done})
+                log('guide finished id=%d (done=%r)' % (gid, done))
+            return None                           # c-only 消息，不应答
         if opcode == 3009:                       # 心跳
             return self.reply(conn, 3009, {})
         # 通用：有响应 schema 就按默认值应答

@@ -239,6 +239,10 @@ class Handler(BaseHTTPRequestHandler):
                 except OSError: pass
                 return self._send(200, json.dumps({'ok': True, 'staticPatchVersion': 'force-refresh-%d' % int(time.time())}).encode(), 'application/json')
             return self._send(200, json.dumps({'ok': True, 'staticPatchVersion': client_v or '20261116-qq-membership-login-v514'}).encode(), 'application/json')
+        if path == '/battle-balance/config':
+            # 战斗平衡热更配置轮询（战斗中每 2s 一次）。返回 enabled=false
+            # 让客户端走内置默认公式，避免 404 刷屏。
+            return self._send(200, json.dumps({'enabled': False}).encode(), 'application/json')
         if path.startswith('/client-'):       # 埋点（GET 形式）
             return self._send(200, b'{"ok":true}', 'application/json')
         return self._send(404, b'not found', 'text/plain')
