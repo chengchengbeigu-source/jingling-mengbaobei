@@ -234,15 +234,53 @@ class GameSession:
         ws_write_frame(conn, pack_packet(opcode, body))
         log('-> %d (%d B body)' % (opcode, len(body)))
 
-    @staticmethod
-    def _pet_package():
-        """PET_GET_ALL_INFO(11000) 载荷：初始队伍+宠物+羁绊。
-        新玩家统一发放初始宠 小火龙（game10 配置 hero_id=125, card_id=1250104）。"""
-        starter = {'uid': 1, 'hero_id': 125, 'lev': 1, 'exp': 0,
-                   'card_id': 1250104, 'star': 0, 'stage': 0, 'qua_stage': 0,
-                   'favor_id': 0, 'favor_lev': 0, 'favor_exp': 0,
-                   'star_list': [], 'seer_list': [], 'eqm_list': []}
-        return {'team_list': [], 'hero_list': [starter], 'fate_list': []}
+    STARTER = {'uid': 1, 'hero_id': 125, 'lev': 1, 'exp': 0,
+               'card_id': 1250104, 'star': 1, 'stage': 0, 'qua_stage': 0,
+               'favor_id': 0, 'favor_lev': 0, 'favor_exp': 0,
+               'star_list': [], 'seer_list': [], 'eqm_list': []}
+    # 战斗属性（AttrCfg：1=hp 2=atk 3=def 13=speed），保证新手战斗稳赢
+    ATTRS = [(1, 20000), (2, 3000), (3, 1500), (13, 200)]
+
+    @classmethod
+    def _ensure_pets(cls, account):
+        """角色名下宠物列表；没有就发放初始宠（小火龙）并持久化。"""
+        role = get_role(account) or {}
+        pets = role.get('pets')
+        if not pets:
+            pets = [dict(cls.STARTER)]
+            upsert_role(account, {'pets': pets})
+        return pets
+
+    @classmethod
+    def _pet_package(cls, account):
+        """PET_GET_ALL_INFO(11000) 载荷：队伍+宠物+羁绊。"""
+        pets = cls._ensure_pets(account)
+        team = (get_role(account) or {}).get('team') or []
+        team_list = [{'pos1': t['pos'], 'pos2': t.get('pos2', 0),
+                      'uid': t['uid'], 'eqm_list': []} for t in team]
+        return {'team_list': team_list, 'hero_list': pets, 'fate_list': []}
+
+    @classmethod
+    def _battle_info(cls, account):
+        """14002 my_battle_info：蓝方=角色宠物（heroList+teamList）。
+        官方流程 setTeamPets 用 heroList 建宠、teamList 摆位；
+        队伍为空（新手还没上阵）时自动全员上阵，保证引导战能打。"""
+        pets = cls._ensure_pets(account)
+        team = (get_role(account) or {}).get('team') or []
+        if not team:
+            team = [{'pos': i + 1, 'uid': p['uid']} for i, p in enumerate(pets[:6])]
+        uids = {p['uid'] for p in pets}
+        hero_list = [{'uid': p['uid'], 'hero_id': p['hero_id'],
+                      'lev': p.get('lev', 1), 'card_id': p['card_id'],
+                      'star': p.get('star', 0), 'stage': p.get('stage', 0),
+                      'attr_list': [{'attr_id': a, 'attr_value': v}
+                                    for a, v in cls.ATTRS]}
+                     for p in pets]
+        team_list = [{'pos1': t['pos'], 'pos2': 0, 'uid': t['uid'], 'eqm_list': []}
+                     for t in team if t['uid'] in uids]
+        return {'role_speed': 200,
+                'using_emblem': {'emblem_id': 0, 'refine': 0, 'level': 0},
+                'teamList': team_list, 'heroList': hero_list}
 
     def handle(self, conn, opcode, body):
         schema_entry = SCHEMA.get(str(opcode)) or {}
@@ -308,16 +346,29 @@ class GameSession:
             # GuideModel 等三个来源（ROLE_INIT/DUNGEON_INIT/GUIDE_LSIT）到齐后
             # 才会派发 NET_INIT_OK 并启动新手引导（领 starter 宠物等）。
             self.reply(conn, 14001, {'type': 0, 'dungeon_list': []})
-            self.reply(conn, 11000, self._pet_package())   # PET_GET_ALL_INFO
+            self.reply(conn, 11000, self._pet_package(self.account or '123'))   # PET_GET_ALL_INFO
             return self.reply(conn, 4009, {'guideList': role.get('guides_done', [])})
         if opcode == 11000:                      # 宠物全量信息（客户端请求）
-            return self.reply(conn, 11000, self._pet_package())
+            return self.reply(conn, 11000, self._pet_package(self.account or '123'))
+        if opcode == 11002:                      # 上阵/换阵（set_team → team_hero）
+            team = [{'pos': int(t.get('pos', 0)), 'uid': int(t.get('uid', 0))}
+                    for t in (req.get('team_list') or [])]
+            upsert_role(self.account or '123', {'team': team})
+            log('team updated: %r' % team)
+            return self.reply(conn, 11002, {'result': 0,
+                                            'team_list': [{'pos1': t['pos'], 'pos2': 0,
+                                                           'uid': t['uid'], 'eqm_list': []}
+                                                          for t in team]})
+        if opcode in (11984, 11985):             # 探索手册（本地扩展协议，data=JSON 字符串）
+            return self.reply(conn, opcode, {'result': 0,
+                                             'data': '{"tracks":[],"nextRequestId":1}'})
         if opcode == 14001:                      # 副本初始化（客户端请求/服务端推送同号）
             return self.reply(conn, 14001, {'type': int(req.get('type') or 0),
                                             'dungeon_list': []})
-        if opcode == 14002:                      # 副本战斗开始
+        if opcode == 14002:                      # 副本战斗开始 → 下发完整蓝方阵容
             return self.reply(conn, 14002, {'result': 0,
-                                            'dungeonId': int(req.get('dungeonId') or 0)})
+                                            'dungeonId': int(req.get('dungeonId') or 0),
+                                            'my_battle_info': self._battle_info(self.account or '123')})
         if opcode == 14003:                      # 副本战斗结束（发奖励）
             return self.reply(conn, 14003, {'result': 0,
                                             'dungeonId': int(req.get('dungeonId') or 0),

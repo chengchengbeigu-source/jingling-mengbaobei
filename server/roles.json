@@ -10,15 +10,41 @@
   "energy": 999,
   "gold": 1000000,
   "coin": 10000,
-  "guides_done": []
+  "guides_done": [
+   101
+  ]
  },
  "test_bot": {
   "roleId": 100002,
   "lev": 1,
-  "created": 1794867507,
+  "created": 1794869343,
   "name": "小萌新",
   "face_id": 3,
   "faceID": 3,
-  "init_faceID": 3
+  "init_faceID": 3,
+  "pets": [
+   {
+    "uid": 1,
+    "hero_id": 125,
+    "lev": 1,
+    "exp": 0,
+    "card_id": 1250104,
+    "star": 1,
+    "stage": 0,
+    "qua_stage": 0,
+    "favor_id": 0,
+    "favor_lev": 0,
+    "favor_exp": 0,
+    "star_list": [],
+    "seer_list": [],
+    "eqm_list": []
+   }
+  ],
+  "team": [
+   {
+    "pos": 1,
+    "uid": 1
+   }
+  ]
  }
 }
