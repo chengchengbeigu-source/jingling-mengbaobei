@@ -111,8 +111,12 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         n = int(self.headers.get('Content-Length') or 0)
         raw = self.rfile.read(n) if n else b''
-        if self.path.rstrip('/').endswith('/apk/bootstrap') or self.path == '/apk/bootstrap':
+        p = urlparse(self.path).path
+        if p == '/apk/bootstrap':
             return self._bootstrap(raw)
+        if p.startswith('/client-'):          # 埋点上报：本地只收不传
+            log('telemetry %s (%d B)' % (p, len(raw)))
+            return self._send(200, b'{"ok":true}', 'application/json')
         return self._send(404, b'not found', 'text/plain')
 
     def _route(self, head):
@@ -126,6 +130,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, b'pong', 'text/plain')
         if path.startswith('/pet05f/') or path.startswith('/sdkapi00.quicksdk.net/') or path == '/favicon.ico':
             return self._asset(path, u.query)
+        if path.startswith('/client-'):       # 埋点（GET 形式）
+            return self._send(200, b'{"ok":true}', 'application/json')
         return self._send(404, b'not found', 'text/plain')
 
     def _bootstrap(self, raw):
@@ -214,11 +220,26 @@ WS_CTX.load_cert_chain(os.path.join(PEM, 'server.crt'), os.path.join(PEM, 'serve
 UP_CTX = ssl.create_default_context()
 UP_CTX.check_hostname = False; UP_CTX.verify_mode = ssl.CERT_NONE
 
-def pipe(a, b):
+RECORD = os.environ.get('MB_RECORD') == '1'      # MB_RECORD=1 时抓包游戏协议帧
+REC_DIR = os.path.join(HERE, 'ws_record')
+REC_SEQ = [0]
+
+def record(tag, data):
+    """把隧道里的明文 WS 帧落盘，供后续离线仿真/协议分析（MB_RECORD=1）。"""
+    if not RECORD: return
+    os.makedirs(REC_DIR, exist_ok=True)
+    with ORIGIN_LOCK:
+        REC_SEQ[0] += 1
+        i = REC_SEQ[0]
+    with open(os.path.join(REC_DIR, '%s_%04d_%s.bin' % (time.strftime('%H%M%S'), i, tag)), 'wb') as f:
+        f.write(data)
+
+def pipe(a, b, tag=''):
     try:
         while True:
             d = a.recv(65536)
             if not d: break
+            if tag: record(tag, d)
             b.sendall(d)
     except Exception: pass
     finally:
@@ -239,8 +260,8 @@ def ws_client(conn):
         ups = UP_CTX.wrap_socket(up, server_hostname=ORIGIN_WS[0])
         conn.settimeout(None)
         log('WS tunnel established')
-        threading.Thread(target=pipe, args=(conn, ups), daemon=True).start()
-        pipe(ups, conn)
+        threading.Thread(target=pipe, args=(conn, ups, 'c2s'), daemon=True).start()
+        pipe(ups, conn, 's2c')
     except Exception as e:
         log('ws error: %r' % e)
         try: conn.close()
@@ -256,9 +277,18 @@ def ws_server():
         threading.Thread(target=ws_client, args=(c,), daemon=True).start()
 
 # ---------- main ----------
+def session_cleaner():
+    while True:
+        time.sleep(300)
+        now = time.time()
+        with ORIGIN_LOCK:
+            for k in [k for k, v in SESSIONS.items() if v < now]:
+                SESSIONS.pop(k, None)
+
 def main():
     threading.Thread(target=ws_server, daemon=True).start()
     threading.Thread(target=origin_bootstrap, daemon=True).start()
+    threading.Thread(target=session_cleaner, daemon=True).start()
     srv = ThreadingHTTPServer(LISTEN_HTTP, Handler)
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(os.path.join(PEM, 'server.crt'), os.path.join(PEM, 'server.key'))

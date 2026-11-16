@@ -1,13 +1,17 @@
 server/mirror/
+server/ws_record/
 server.log
-apk_ext/
-*.apk
-__pycache__/
 nohup.out
-server/pem/*.key
-server/pem/*.srl
-netcheck.py
-netdiag.py
+__pycache__/
+out/
+apk_ext/
+scratch/
 installed.apk
 patched_installed.apk
-scratch/
+netcheck.py
+netdiag.py
+server/pem/*.key
+server/pem/*.srl
+# 原版 APK 需要入库供 CI 构建，其余 apk 忽略
+*.apk
+!apk/mb-1.1.4.apk

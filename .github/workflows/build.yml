@@ -1,0 +1,74 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    paths: ['tools/**', 'server/**', 'apk/**', '.github/workflows/**']
+  workflow_dispatch:
+
+jobs:
+  coexist-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install deps
+        run: pip install cryptography
+
+      - name: Restore signing keys from secrets
+        run: |
+          mkdir -p server/pem
+          printf '%s' "$MB_CA_KEY"      | base64 -d > server/pem/ca.key
+          printf '%s' "$MB_SERVER_KEY"  | base64 -d > server/pem/server.key
+          printf '%s' "$MB_COEXIST_KEY" | base64 -d > server/pem/coexist.key
+        env:
+          MB_CA_KEY: ${{ secrets.MB_CA_KEY }}
+          MB_SERVER_KEY: ${{ secrets.MB_SERVER_KEY }}
+          MB_COEXIST_KEY: ${{ secrets.MB_COEXIST_KEY }}
+
+      - name: Build coexist APK
+        run: |
+          mkdir -p out
+          python3 tools/build_coexist.py apk/mb-1.1.4.apk out/mb-coexist.apk
+
+      - name: Verify coexist APK
+        run: python3 tools/verify_apk.py out/mb-coexist.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mb-coexist-apk
+          path: out/mb-coexist.apk
+
+  server-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package server (不含密钥与缓存)
+        run: |
+          mkdir -p out
+          zip -r out/mbserver.zip server \
+            -x "server/pem/*" -x "server/mirror/*" -x "server/ws_record/*" -x "server/server.log"
+
+      - name: Smoke test
+        run: |
+          pip install cryptography
+          python3 - <<'EOF'
+          import py_compile, pathlib
+          for p in pathlib.Path('server').rglob('*.py'):
+              py_compile.compile(str(p), doraise=True)
+          for p in pathlib.Path('tools').rglob('*.py'):
+              py_compile.compile(str(p), doraise=True)
+          print('python syntax OK')
+          EOF
+
+      - name: Upload server package
+        uses: actions/upload-artifact@v4
+        with:
+          name: mbserver
+          path: out/mbserver.zip
