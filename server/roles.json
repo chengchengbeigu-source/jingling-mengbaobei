@@ -6,6 +6,9 @@
   "name": "训练师123",
   "face_id": 1,
   "faceID": 1,
-  "init_faceID": 1
+  "init_faceID": 1,
+  "energy": 999,
+  "gold": 1000000,
+  "coin": 10000
  }
 }

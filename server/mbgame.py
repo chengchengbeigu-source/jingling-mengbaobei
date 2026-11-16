@@ -291,6 +291,9 @@ class GameSession:
                 'roleId': role.get('roleId', 100001),
                 'name': role.get('name', '训练师'),
                 'lev': role.get('lev', 1),
+                'energy': role.get('energy', 999),
+                'gold': role.get('gold', 1000000),
+                'coin': role.get('coin', 10000),
                 'faceID': role.get('faceID', 1),
                 'init_faceID': role.get('init_faceID', 1)}})
         if opcode == 3009:                       # 心跳
