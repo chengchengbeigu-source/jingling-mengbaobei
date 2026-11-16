@@ -2,6 +2,8 @@
 """MB 豆包萌宠 本地私服 (stdlib only)
 
   :4430  HTTPS   /apk/bootstrap  /launch  /pet05f/* (镜像+反代)
+                 /demo/register|login|change-password  /demo/access-policy
+                 /maintenance-status   —— 游戏页"账号中心"的本地账号体系
   :20311 WSS/WS  TLS-bump 透传隧道 → mcbtc.cn:20311
 """
 import base64, hashlib, hmac, json, os, re, secrets, socket, ssl, sys, threading, time
@@ -20,10 +22,41 @@ ORIGIN = 'https://mcbtc.cn:20310'
 ORIGIN_WS = ('mcbtc.cn', 20311)
 LISTEN_HTTP = ('127.0.0.1', 4430)
 LISTEN_WS = ('127.0.0.1', 20311)
+SEED_ACCOUNT = ('123', '123')      # 预置账号（用户要求）
 
 SESSIONS = {}          # cookie -> expiry
 ORIGIN_SESSION = []    # [cookie] maintained for origin fetches
 ORIGIN_LOCK = threading.Lock()
+
+# ---------- 本地账号体系（游戏页 /demo/* 契约） ----------
+ACCOUNTS_FILE = os.path.join(HERE, 'accounts.json')
+ACC_LOCK = threading.Lock()
+
+def _load_accounts():
+    try:
+        with open(ACCOUNTS_FILE, encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_accounts(accs):
+    tmp = ACCOUNTS_FILE + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(accs, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, ACCOUNTS_FILE)
+
+def _pw_hash(salt_hex, pw):
+    return hashlib.scrypt(pw.encode('utf-8'), salt=bytes.fromhex(salt_hex),
+                          n=16384, r=8, p=1).hex()
+
+def seed_account(acc, pw):
+    with ACC_LOCK:
+        accounts = _load_accounts()
+        if acc in accounts: return
+        salt = secrets.token_hex(16)
+        accounts[acc] = {'salt': salt, 'hash': _pw_hash(salt, pw), 'created': int(time.time())}
+        _save_accounts(accounts)
+        log('seeded demo account %r' % acc)
 
 # ---------- origin session (用模拟客户端在源站开一个会话, 供反代携带) ----------
 def b64f(b): return base64.urlsafe_b64encode(b).decode().rstrip('=')
@@ -114,6 +147,8 @@ class Handler(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         if p == '/apk/bootstrap':
             return self._bootstrap(raw)
+        if p in ('/demo/register', '/demo/login', '/demo/change-password'):
+            return self._demo_auth(p, raw)
         if p.startswith('/client-'):          # 埋点上报：本地只收不传
             log('telemetry %s (%d B)' % (p, len(raw)))
             return self._send(200, b'{"ok":true}', 'application/json')
@@ -128,6 +163,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._launch(head)
         if path == '/ping':
             return self._send(200, b'pong', 'text/plain')
+        if path == '/demo/access-policy':
+            # 渠道策略全关：无需注册码 / 不绑设备 / 不强制更新
+            return self._send(200, json.dumps({
+                'ok': True, 'registrationCodeRequired': False,
+                'deviceAccountBindingRequired': False,
+                'appUpdateRequired': False}).encode(), 'application/json')
+        if path == '/maintenance-status':
+            return self._send(200, json.dumps(
+                {'protocolVersion': 1, 'phase': 'open'}).encode(), 'application/json')
         if path.startswith('/pet05f/') or path.startswith('/sdkapi00.quicksdk.net/') or path == '/favicon.ico':
             return self._asset(path, u.query)
         if path.startswith('/client-'):       # 埋点（GET 形式）
@@ -162,6 +206,55 @@ class Handler(BaseHTTPRequestHandler):
             secrets.token_hex(20))
         log('bootstrap APPROVED deviceId=%s...' % did[:16])
         self._send(200, json.dumps({'ok': True, 'launchToken': tok, 'expiresAt': int(time.time()) + 86400}).encode(), 'application/json')
+
+    def _demo_auth(self, path, raw):
+        """游戏页"账号中心"本地账号接口。JS 侧判定：HTTP 2xx 且 body.ok 为真
+        才算成功，否则用 body.error 的错误码映射中文提示。"""
+        try:
+            j = json.loads(raw.decode('utf-8')) if raw else {}
+        except Exception:
+            j = {}
+        acc = str(j.get('accountId') or '').strip()
+        pw = str(j.get('password') or '')
+        bad = lambda code, code401=400: self._send(
+            code401, json.dumps({'ok': False, 'error': code}).encode(), 'application/json')
+        with ACC_LOCK:
+            accounts = _load_accounts()
+            if path == '/demo/register':
+                if not acc:   return bad('account_required')
+                if not pw:    return bad('password_required')
+                if acc in accounts: return bad('account_exists')
+                salt = secrets.token_hex(16)
+                accounts[acc] = {'salt': salt, 'hash': _pw_hash(salt, pw),
+                                 'created': int(time.time())}
+                _save_accounts(accounts)
+                log('demo register account=%s' % acc)
+                return self._send(200, json.dumps(
+                    {'ok': True, 'accountId': acc}).encode(), 'application/json')
+            rec = accounts.get(acc)
+            if path == '/demo/login':
+                if not acc:                    return bad('account_required')
+                if not pw:                     return bad('password_required')
+                if rec is None:                return bad('account_not_found', 401)
+                if hmac.compare_digest(_pw_hash(rec['salt'], pw), rec['hash']):
+                    log('demo login ok account=%s' % acc)
+                    return self._send(200, json.dumps(
+                        {'ok': True, 'accountId': acc}).encode(), 'application/json')
+                return bad('invalid_password', 401)
+            # /demo/change-password
+            old = str(j.get('oldPassword') if j.get('oldPassword') is not None else pw)
+            new = str(j.get('newPassword') or '')
+            if not acc:                        return bad('account_required')
+            if rec is None:                    return bad('account_not_found', 401)
+            if not new:                        return bad('new_password_required')
+            if not hmac.compare_digest(_pw_hash(rec['salt'], old), rec['hash']):
+                return bad('invalid_password', 401)
+            salt = secrets.token_hex(16)
+            rec['salt'], rec['hash'] = salt, _pw_hash(salt, new)
+            _save_accounts(accounts)
+            log('demo change-password account=%s' % acc)
+            return self._send(200, json.dumps(
+                {'ok': True, 'accountId': acc}).encode(), 'application/json')
 
     def _launch(self, head):
         q = parse_qs(urlparse(self.path).query)
@@ -286,6 +379,7 @@ def session_cleaner():
                 SESSIONS.pop(k, None)
 
 def main():
+    seed_account(*SEED_ACCOUNT)
     threading.Thread(target=ws_server, daemon=True).start()
     threading.Thread(target=origin_bootstrap, daemon=True).start()
     threading.Thread(target=session_cleaner, daemon=True).start()
