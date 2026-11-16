@@ -4,12 +4,15 @@
   :4430  HTTPS   /apk/bootstrap  /launch  /pet05f/* (镜像+反代)
                  /demo/register|login|change-password  /demo/access-policy
                  /maintenance-status   —— 游戏页"账号中心"的本地账号体系
-  :20311 WSS/WS  TLS-bump 透传隧道 → mcbtc.cn:20311
+  :20311 WSS     本地游戏服务端（mbgame，协议仿真；官方关闭也可单人玩）
+                 MB_WS_TUNNEL=1 时退回旧模式：TLS-bump 透传隧道 → mcbtc.cn:20311
 """
 import base64, hashlib, hmac, json, os, re, secrets, socket, ssl, sys, threading, time
 import urllib.request, urllib.error
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs, urlencode
+
+import mbgame
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PEM = os.path.join(HERE, 'pem')
@@ -22,11 +25,16 @@ ORIGIN = 'https://mcbtc.cn:20310'
 ORIGIN_WS = ('mcbtc.cn', 20311)
 LISTEN_HTTP = ('127.0.0.1', 4430)
 LISTEN_WS = ('127.0.0.1', 20311)
-SEED_ACCOUNT = ('123', '123')      # 预置账号（用户要求）
+SEED_ACCOUNT = ('123', '123')      # 本地账号库预置账号（官方不可达时的兜底）
 
 SESSIONS = {}          # cookie -> expiry
 ORIGIN_SESSION = []    # [cookie] maintained for origin fetches
 ORIGIN_LOCK = threading.Lock()
+
+PROXY_CTX = ssl.create_default_context()
+PROXY_CTX.check_hostname = False
+PROXY_CTX.verify_mode = ssl.CERT_NONE
+UA_GAME = 'Mozilla/5.0 (Linux; Android 14) MBGameApp/1.0'
 
 # ---------- 本地账号体系（游戏页 /demo/* 契约） ----------
 ACCOUNTS_FILE = os.path.join(HERE, 'accounts.json')
@@ -148,7 +156,9 @@ class Handler(BaseHTTPRequestHandler):
         if p == '/apk/bootstrap':
             return self._bootstrap(raw)
         if p in ('/demo/register', '/demo/login', '/demo/change-password'):
-            return self._demo_auth(p, raw)
+            if os.environ.get('MB_DEMO_OFFICIAL') == '1':   # 调试：透传官方
+                return self._proxy_origin(p, raw)
+            return self._demo_auth(p, raw)                  # 默认本地账号库
         if p.startswith('/client-'):          # 埋点上报：本地只收不传
             log('telemetry %s (%d B)' % (p, len(raw)))
             return self._send(200, b'{"ok":true}', 'application/json')
@@ -163,15 +173,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._launch(head)
         if path == '/ping':
             return self._send(200, b'pong', 'text/plain')
-        if path == '/demo/access-policy':
-            # 渠道策略全关：无需注册码 / 不绑设备 / 不强制更新
-            return self._send(200, json.dumps({
-                'ok': True, 'registrationCodeRequired': False,
-                'deviceAccountBindingRequired': False,
-                'appUpdateRequired': False}).encode(), 'application/json')
-        if path == '/maintenance-status':
-            return self._send(200, json.dumps(
-                {'protocolVersion': 1, 'phase': 'open'}).encode(), 'application/json')
+        if path in ('/demo/access-policy', '/maintenance-status'):
+            if os.environ.get('MB_DEMO_OFFICIAL') == '1':
+                return self._proxy_origin(path)
+            return self._demo_local_get(path)   # 默认本地：全关校验，直接可玩
         if path.startswith('/pet05f/') or path.startswith('/sdkapi00.quicksdk.net/') or path == '/favicon.ico':
             return self._asset(path, u.query)
         if path.startswith('/client-'):       # 埋点（GET 形式）
@@ -206,6 +211,42 @@ class Handler(BaseHTTPRequestHandler):
             secrets.token_hex(20))
         log('bootstrap APPROVED deviceId=%s...' % did[:16])
         self._send(200, json.dumps({'ok': True, 'launchToken': tok, 'expiresAt': int(time.time()) + 86400}).encode(), 'application/json')
+
+    def _proxy_origin(self, path, raw=None):
+        """[MB_DEMO_OFFICIAL=1 时启用] 账号/维护接口透传官方。
+        默认关闭：本地私服自成账号体系，不依赖官方可达性。"""
+        ck = origin_session()
+        hdrs = {'User-Agent': UA_GAME}
+        if ck: hdrs['Cookie'] = ck
+        method = 'POST' if raw is not None else 'GET'
+        if raw is not None: hdrs['Content-Type'] = 'application/json; charset=utf-8'
+        try:
+            r = urllib.request.urlopen(urllib.request.Request(
+                ORIGIN + path, data=raw, headers=hdrs, method=method),
+                context=PROXY_CTX, timeout=15)
+            code, body = r.status, r.read()
+            setc = (r.headers.get_all('Set-Cookie') or [None])[0]
+        except urllib.error.HTTPError as e:
+            code, body = e.code, e.read()
+            setc = (e.headers.get_all('Set-Cookie') or [None])[0]
+        except Exception as e:
+            log('origin %s unreachable (%r) -> local fallback' % (path, e))
+            if raw is not None: return self._demo_auth(path, raw)
+            return self._demo_local_get(path)
+        extra = {'Set-Cookie': setc} if setc else None
+        log('demo proxy %s -> HTTP %d' % (path, code))
+        self._send(code, body, 'application/json', extra)
+
+    def _demo_local_get(self, path):
+        if path == '/demo/access-policy':
+            return self._send(200, json.dumps({
+                'ok': True, 'registrationCodeRequired': False,
+                'deviceAccountBindingRequired': False,
+                'appUpdateRequired': False}).encode(), 'application/json')
+        if path == '/maintenance-status':
+            return self._send(200, json.dumps(
+                {'protocolVersion': 1, 'phase': 'open'}).encode(), 'application/json')
+        return self._send(404, b'not found', 'text/plain')
 
     def _demo_auth(self, path, raw):
         """游戏页"账号中心"本地账号接口。JS 侧判定：HTTP 2xx 且 body.ok 为真
@@ -348,13 +389,17 @@ def ws_client(conn):
         if not first: conn.close(); return
         if first == b'\x16':   # TLS ClientHello → wss
             conn = WS_CTX.wrap_socket(conn, server_side=True)
-        # 与源站建立 TLS, 透传
-        up = socket.create_connection(ORIGIN_WS, timeout=10)
-        ups = UP_CTX.wrap_socket(up, server_hostname=ORIGIN_WS[0])
+        if os.environ.get('MB_WS_TUNNEL') == '1':
+            # 旧模式：与源站建立 TLS, 透传（官方在线联调/抓包用）
+            up = socket.create_connection(ORIGIN_WS, timeout=10)
+            ups = UP_CTX.wrap_socket(up, server_hostname=ORIGIN_WS[0])
+            conn.settimeout(None)
+            log('WS tunnel established')
+            threading.Thread(target=pipe, args=(conn, ups, 'c2s'), daemon=True).start()
+            pipe(ups, conn, 's2c')
+            return
         conn.settimeout(None)
-        log('WS tunnel established')
-        threading.Thread(target=pipe, args=(conn, ups, 'c2s'), daemon=True).start()
-        pipe(ups, conn, 's2c')
+        mbgame.serve(conn, conn.getpeername())
     except Exception as e:
         log('ws error: %r' % e)
         try: conn.close()
@@ -364,7 +409,8 @@ def ws_server():
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind(LISTEN_WS); s.listen(16)
-    log('WS tunnel listening on %s:%d' % LISTEN_WS)
+    log('game WS listening on %s:%d (tunnel=%s)' % (
+        LISTEN_WS[0], LISTEN_WS[1], os.environ.get('MB_WS_TUNNEL') == '1'))
     while True:
         c, addr = s.accept()
         threading.Thread(target=ws_client, args=(c,), daemon=True).start()
