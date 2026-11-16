@@ -207,3 +207,46 @@ tools/gen_certs.sh    ← 本地 CA / 服务器证书生成
 server/mbserver.py    ← 本地私服 (HTTPS + WS 代理)
 server/pem/           ← 证书目录 (生成产物)
 ```
+
+## 7. 共存版实现记录（v2 签名全流程）
+
+### 7.1 布局陷阱与修正（均经真实安装验证）
+
+v2 签名块嵌套层级多，初次实现有 4 处错，全部通过自写验证器逐层修复：
+
+```
+APK Signing Block = [size8][pair][size8][magic16]
+  pair(0x7109871a) = length-prefixed sequence of signers
+    sequence = [seq_len][signer_len][signer]           ← signer 与 sequence 各有一层 len
+    signer   = [sd_len][signed_data][sigs_len][sigs][pk_len][pk]
+    signed_data = [digests_seq][certs_seq][attrs_seq]  ← 三段各自 len-prefixed
+      digests_seq = [seq_len][entry_len][alg][digest_len][digest]
+      certs_seq   = [seq_len][cert_len][certDER]
+    sigs     = [seq_len][entry_len][alg][sig_len][sig]
+```
+
+踩过的坑：signer 少一层 lp、signed_data 多一层 lp、digests/certs/attrs 条目缺内层 lp、
+签名对象必须是 signed_data 本身（不含 signer 层）。
+
+### 7.2 DEX 头修复（安装后 Bad checksum 闪退的根因）
+
+```
+signature = SHA1(dex[32:])       → 写回 offset 12..32
+checksum  = Adler32(dex[12:])    → 写回 offset 8..12
+```
+
+### 7.3 双编码包名替换
+
+AXML/ARSC 字符串池以 UTF-16LE 存储：`com.localfirst.mb` 需同时替换 ASCII 与 UTF-16LE 两份，
+用 `com.localfirst.Mb`（等长）避免池尺寸重排。
+
+### 7.4 签名指纹自检绕过
+
+arsc 中 `apk_signer_sha256` = 证书 SHA-256 hex（64 字符）。共存版证书由本地 CA 签发，
+新指纹等长（64 hex）原地替换 → 运行时 `j.c()` 通过。
+
+### 7.5 网络拓扑
+
+DSHA 容器与设备网络命名空间隔离：设备 WebView 无法连容器 127.0.0.1。
+共存版线路指向容器 IP `10.32.242.154:4430`（等长填充到 88 字节明文内）。
+server 证书 SAN 含该 IP。
