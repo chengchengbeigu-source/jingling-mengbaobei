@@ -97,6 +97,30 @@ def main():
     assert mbpatch.dex_selfcheck(dex), 'dex SHA-1/Adler32 不自洽'
     print('[ok] dex: 线路常量已重定位（127.0.0.1:4430），校验和自洽')
 
+    # ART 式字符串表全量走查：任何一项缺 NUL 终止都会被 ART 拒载
+    n_ids = struct.unpack_from('<I', dex, 56)[0]
+    ids_off = struct.unpack_from('<I', dex, 60)[0]
+
+    def _uleb(d, o):
+        r, s = 0, 0
+        while True:
+            b = d[o]
+            o += 1
+            r |= (b & 0x7F) << s
+            if not (b & 0x80):
+                return r, o
+            s += 7
+
+    for i in range(n_ids):
+        off = struct.unpack_from('<I', dex, ids_off + 4 * i)[0]
+        size, p = _uleb(dex, off)
+        for _ in range(size):
+            b = dex[p]
+            p += 1 if b < 0x80 else (2 if b < 0xE0 else 3)
+        assert p < len(dex) and dex[p] == 0, \
+            'dex string #%d (off=%d) 无 NUL 终止 — ART 会拒载' % (i, off)
+    print('[ok] dex: %d 条字符串全部 NUL 终止（ART 式走查通过）' % n_ids)
+
     # --- v2 签名块：取证书、验签 ---
     v2 = find_v2_block(data)
     signers, _ = rd_lp(v2, 0)

@@ -87,8 +87,10 @@ def _read_uleb128(data: bytes, off: int):
 
 
 def patch_dex_string(dex: bytes, old_str: str, new_str: str):
-    """dex 字符串表重定位：追加新 string_data_item 并把引用它的 string_id
-    指向新项，最后修 header SHA-1/Adler32。返回 (新 dex, 命中次数)。"""
+    """dex 字符串原地替换：新串必须不长于旧串占用空间（uleb128 前缀 + MUTF-8 + NUL）。
+    不追加、不挪偏移、不改任何 section 布局 —— 只改一个 string_data_item 的字节，
+    剩余空间填 0（无引用的死字节）。最后修 header SHA-1/Adler32。
+    返回 (新 dex, 命中次数)。"""
     if dex[0:4] != b'dex\n':
         raise ValueError('not a dex file')
     str_ids_size = struct.unpack_from('<I', dex, 56)[0]
@@ -105,17 +107,16 @@ def patch_dex_string(dex: bytes, old_str: str, new_str: str):
     if len(hits) != 1:
         raise ValueError('expect exactly 1 dex string hit, got %d' % len(hits))
     idx, old_off, old_end = hits[0]
+    span = old_end - old_off
+    if len(new_payload) > span:
+        raise ValueError('new string (%d B) does not fit old span (%d B); '
+                         'in-place replacement impossible' % (len(new_payload), span))
 
-    # 追加到文件尾，4 字节对齐
-    new_off = (len(dex) + 3) & ~3
-    out = bytearray(dex + b'\x00' * (new_off - len(dex)) + new_payload)
-    # 旧 string_data_item 已无引用 → 整段清零（防止旧线路常量残留在包内）
-    out[old_off:old_end] = b'\x00' * (old_end - old_off)
-    struct.pack_into('<I', out, str_ids_off + 4 * idx, new_off)
-    # header: file_size(32), data_size(104) 同步扩容；SHA-1(12..32) 对 bytes[32:]；Adler32(8..12) 对 bytes[12:]
-    struct.pack_into('<I', out, 32, len(out))
-    old_data_size = struct.unpack_from('<I', dex, 104)[0]
-    struct.pack_into('<I', out, 104, old_data_size + (len(out) - len(dex)))
+    out = bytearray(dex)
+    out[old_off:old_off + len(new_payload)] = new_payload
+    # 旧串剩余空间清零：无 string_id 引用的死字节，不参与解析
+    out[old_off + len(new_payload):old_end] = b'\x00' * (span - len(new_payload))
+    # 文件长度不变 → 只需重算 SHA-1(12..32, 对 bytes[32:]) 与 Adler32(8..12, 对 bytes[12:])
     out[12:32] = hashlib.sha1(bytes(out[32:])).digest()
     struct.pack_into('<I', out, 8, zlib.adler32(bytes(out[12:])) & 0xFFFFFFFF)
     return bytes(out), 1
