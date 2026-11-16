@@ -76,3 +76,47 @@ am force-stop com.localfirst.mb
 - 源站资源 URL 带版本参数（?v=...）变化时会重新拉取并覆盖镜像。
 - 若源站更换 WS 地址/协议（serverIp 参数），需同步更新 mbserver.py 的 ORIGIN_WS。
 - 仓库中的样例补丁基于随包样本；线上安装包请用第 3 步从设备提取的 APK 重新补丁。
+
+---
+
+# 共存版（与原版并行安装）
+
+## tools/build_coexist.py
+
+克隆一个包名大小写不同的共存版：`com.localfirst.mb` → `com.localfirst.Mb`（等长，Manifest/arsc 双编码 UTF-8/UTF-16LE 原地替换）。
+
+完整改动清单：
+
+1. 包名替换（ASCII + UTF-16LE 双编码）
+2. dex 线路等长 Base64 → 本地服务（query 填充保持 88 字节）
+3. **DEX header 修复**：SHA-1 signature (offset 12) + Adler32 checksum (offset 8) 重算 —— 漏掉会导致 `Bad checksum` 安装后闪退
+4. resources.arsc 签名指纹字符串替换为共存版证书指纹（通过运行时自检）
+5. res/yo.der → 本地 CA
+6. v1 (JAR) + v2 (APK Signing Block) 双签名，v2 严格按 AOSP apksig 规范：
+   - signed data = length-prefixed digests + length-prefixed certs + length-prefixed attrs
+   - 每个 digest/cert/attr/signer 条目独立 length-prefix
+   - EOCD 的 CD-offset 字段按「指向 signing block 起点」参与摘要
+   - RSA PKCS1 v1.5 SHA-256 (算法 ID 0x0103) 对 signed data 签名
+
+## 构建与安装
+
+```bash
+# 1. 生成共存签名密钥（首次自动生成）
+python3 tools/build_coexist.py installed_base.apk coexist.apk
+
+# 2. 推到手机
+adb push coexist.apk /sdcard/Download/doubao_coexist.apk
+
+# 3. 安装（与原版共存, 图标同名注意区分）
+#    若之前装过旧共存版, 必须先卸载（签名不同无法覆盖装）
+```
+
+## 自校验清单（构建后必查）
+
+```
+zip testzip: None                    ← 完整性
+DEX checksum/signature: True/True    ← dex header 修复生效
+manifest UTF16 new=3 old=0           ← 包名替换完整
+V2 SIGNATURE VERIFY: OK              ← v2 结构与签名正确
+digest_match=True                    ← 分块摘要一致
+```

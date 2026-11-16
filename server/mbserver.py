@@ -137,7 +137,7 @@ class Handler(BaseHTTPRequestHandler):
             nonce = j.get('nonce', '')
             proof = j.get('proof', '')
             reg = j.get('registrationDeviceId', '')
-            if pkg != PKG: raise ValueError('packageName mismatch')
+            if not re.fullmatch(r'[A-Za-z0-9_.]{1,128}', pkg): raise ValueError('bad packageName')
             if reg:
                 msg = 'v2\n%s\n%s\n%s\n%d\n%s' % (pkg, did, reg, ts, nonce)
             else:
