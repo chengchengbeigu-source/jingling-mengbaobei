@@ -11,5 +11,14 @@
   "gold": 1000000,
   "coin": 10000,
   "guides_done": []
+ },
+ "test_bot": {
+  "roleId": 100002,
+  "lev": 1,
+  "created": 1794867507,
+  "name": "小萌新",
+  "face_id": 3,
+  "faceID": 3,
+  "init_faceID": 3
  }
 }

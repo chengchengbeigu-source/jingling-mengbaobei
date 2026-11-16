@@ -234,6 +234,16 @@ class GameSession:
         ws_write_frame(conn, pack_packet(opcode, body))
         log('-> %d (%d B body)' % (opcode, len(body)))
 
+    @staticmethod
+    def _pet_package():
+        """PET_GET_ALL_INFO(11000) 载荷：初始队伍+宠物+羁绊。
+        新玩家统一发放初始宠 小火龙（game10 配置 hero_id=125, card_id=1250104）。"""
+        starter = {'uid': 1, 'hero_id': 125, 'lev': 1, 'exp': 0,
+                   'card_id': 1250104, 'star': 0, 'stage': 0, 'qua_stage': 0,
+                   'favor_id': 0, 'favor_lev': 0, 'favor_exp': 0,
+                   'star_list': [], 'seer_list': [], 'eqm_list': []}
+        return {'team_list': [], 'hero_list': [starter], 'fate_list': []}
+
     def handle(self, conn, opcode, body):
         schema_entry = SCHEMA.get(str(opcode)) or {}
         req_schema = schema_entry.get('c', [])
@@ -298,10 +308,21 @@ class GameSession:
             # GuideModel 等三个来源（ROLE_INIT/DUNGEON_INIT/GUIDE_LSIT）到齐后
             # 才会派发 NET_INIT_OK 并启动新手引导（领 starter 宠物等）。
             self.reply(conn, 14001, {'type': 0, 'dungeon_list': []})
+            self.reply(conn, 11000, self._pet_package())   # PET_GET_ALL_INFO
             return self.reply(conn, 4009, {'guideList': role.get('guides_done', [])})
+        if opcode == 11000:                      # 宠物全量信息（客户端请求）
+            return self.reply(conn, 11000, self._pet_package())
         if opcode == 14001:                      # 副本初始化（客户端请求/服务端推送同号）
             return self.reply(conn, 14001, {'type': int(req.get('type') or 0),
                                             'dungeon_list': []})
+        if opcode == 14002:                      # 副本战斗开始
+            return self.reply(conn, 14002, {'result': 0,
+                                            'dungeonId': int(req.get('dungeonId') or 0)})
+        if opcode == 14003:                      # 副本战斗结束（发奖励）
+            return self.reply(conn, 14003, {'result': 0,
+                                            'dungeonId': int(req.get('dungeonId') or 0),
+                                            'base_reward': [], 'extra_reward': [],
+                                            'coin_reward': [], 'new_team_list': []})
         if opcode == 4008:                       # 新手引导完成上报（无响应 schema）
             gid = int(req.get('guideId') or 0)
             role = get_role(self.account or '123')
