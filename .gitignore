@@ -1,0 +1,13 @@
+server/mirror/
+server.log
+apk_ext/
+*.apk
+__pycache__/
+nohup.out
+server/pem/*.key
+server/pem/*.srl
+netcheck.py
+netdiag.py
+installed.apk
+patched_installed.apk
+scratch/
