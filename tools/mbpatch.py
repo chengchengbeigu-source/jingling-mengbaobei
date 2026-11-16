@@ -5,11 +5,15 @@
   1. 包名字符串替换 —— 边界锚定（仅匹配「后随 NUL 终止符」的独立字符串），
      UTF-8 与 UTF-16LE 两种字符串池都处理。绝不动 com.localfirst.mb.MainActivity
      等全限定组件名（dex 里的类还是 com.localfirst.mb.*，改了必崩）。
-  2. dex 线路常量替换 —— 字符串表重定位：在文件尾追加新 string_data_item，
-     改写对应 string_id 的 offset，再修 header 的 SHA-1 + Adler32。
-     新串长度任意，不垫垃圾字符。
+  2. dex 线路常量替换 —— 原地等长替换：ART 会把 string_data 节当成
+     「首尾相接的 item 链」顺序走查（map 节声明 item 个数），任何长度变化
+     或填充死字节都会让链条错位、被 ART 拒载（String longer than indicated
+     size 0）。因此新串必须与旧串占用完全相同的字节数：新 b64 恰好 136 字符
+     （解码 102 字节 = 3 行 URL + 1 行无害 junk，游戏代码只取 split 前 3 行）。
+     改完仅重算 header 的 SHA-1 + Adler32。
   3. 资源指纹字符串替换 —— 64 位 hex 等长替换（新旧都是 64 字符）。
 """
+import base64
 import hashlib
 import struct
 import zlib
@@ -19,6 +23,22 @@ NEW_PKG = 'com.localfirst.Mb'          # 等长 case 翻转，合法且与原包
 OLD_FP = '89290d81c7abe96a090ba4323811068e227d5b68e20e91f5c60b21c342ac37a0'
 OLD_LINES_B64 = ('aHR0cHM6Ly9tY2J0Yy5jbjoyMDMxMC9sYXVuY2gKaHR0cHM6Ly9uYWxhbnF1ZWRlLnRvcDoyMDMx'
                  'MC9sYXVuY2gKaHR0cHM6Ly9uYWxhbnF1ZWRlLmNuOjIwMzEwL2xhdW5jaA==')
+NEW_LAUNCH_URL = 'https://127.0.0.1:4430/launch'
+
+
+def _build_lines_b64(url: str) -> str:
+    """构造与旧常量**等长（136 字符）**的替换常量。
+    解码结果 = 3 行 URL + 1 行 junk（游戏按运营商取 split('\n')[0..2]，第 4 行
+    永远不会被读到）。junk 只是为了把解码长度凑到 102 字节（b64 恰好 136 字符、
+    无 '=' 填充），使 dex 字符串 item 的字节数与原串完全一致。"""
+    payload = ((url + '\n') * 2 + url).encode() + b'x' * 13
+    assert len(payload) == 102, len(payload)
+    out = base64.urlsafe_b64encode(payload).decode()
+    assert len(out) == len(OLD_LINES_B64) == 136, (len(out), len(OLD_LINES_B64))
+    return out
+
+
+NEW_LINES_B64 = _build_lines_b64(NEW_LAUNCH_URL)
 
 
 # ---------------------------------------------------------------- 包名替换
@@ -87,9 +107,10 @@ def _read_uleb128(data: bytes, off: int):
 
 
 def patch_dex_string(dex: bytes, old_str: str, new_str: str):
-    """dex 字符串原地替换：新串必须不长于旧串占用空间（uleb128 前缀 + MUTF-8 + NUL）。
-    不追加、不挪偏移、不改任何 section 布局 —— 只改一个 string_data_item 的字节，
-    剩余空间填 0（无引用的死字节）。最后修 header SHA-1/Adler32。
+    """dex 字符串**原地等长**替换。ART 把 string_data 节当作首尾相接的 item 链
+    顺序校验（见 AOSP DexFileVerifier::CheckIntraSectionIterate），任何长度
+    变化或死字节填充都会让链条错位 → 拒载。因此要求新串（uleb128 + MUTF-8 +
+    NUL）与旧串占用字节数完全一致；替换后仅重算 header SHA-1/Adler32。
     返回 (新 dex, 命中次数)。"""
     if dex[0:4] != b'dex\n':
         raise ValueError('not a dex file')
@@ -108,14 +129,13 @@ def patch_dex_string(dex: bytes, old_str: str, new_str: str):
         raise ValueError('expect exactly 1 dex string hit, got %d' % len(hits))
     idx, old_off, old_end = hits[0]
     span = old_end - old_off
-    if len(new_payload) > span:
-        raise ValueError('new string (%d B) does not fit old span (%d B); '
-                         'in-place replacement impossible' % (len(new_payload), span))
+    if len(new_payload) != span:
+        raise ValueError('new string payload (%d B) != old span (%d B); '
+                         'dex string-data chain must stay byte-aligned'
+                         % (len(new_payload), span))
 
     out = bytearray(dex)
-    out[old_off:old_off + len(new_payload)] = new_payload
-    # 旧串剩余空间清零：无 string_id 引用的死字节，不参与解析
-    out[old_off + len(new_payload):old_end] = b'\x00' * (span - len(new_payload))
+    out[old_off:old_end] = new_payload
     # 文件长度不变 → 只需重算 SHA-1(12..32, 对 bytes[32:]) 与 Adler32(8..12, 对 bytes[12:])
     out[12:32] = hashlib.sha1(bytes(out[32:])).digest()
     struct.pack_into('<I', out, 8, zlib.adler32(bytes(out[12:])) & 0xFFFFFFFF)

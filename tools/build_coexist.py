@@ -158,11 +158,10 @@ def main():
         if e['method'] == 8:
             raw = zlib.decompress(raw, -15)
         if name == b'classes.dex':
-            new_b64 = base64.standard_b64encode(
-                ((NEW_LAUNCH_URL + '\n') * 2 + NEW_LAUNCH_URL).encode()).decode()
+            new_b64 = mbpatch.NEW_LINES_B64
             raw, n = mbpatch.patch_dex_string(raw, mbpatch.OLD_LINES_B64, new_b64)
             assert mbpatch.dex_selfcheck(raw), 'dex checksum self-check failed'
-            patched[name] = '线路常量重定位 (%d), 新串 %d 字符' % (n, len(new_b64))
+            patched[name] = '线路常量原地等长替换 (%d), 新串 %d 字符' % (n, len(new_b64))
         elif name == b'AndroidManifest.xml':
             raw, n = mbpatch.patch_pkg_string(raw)
             assert n >= 1, 'manifest: package string not found'

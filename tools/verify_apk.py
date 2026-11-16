@@ -21,8 +21,7 @@ import mbpatch  # noqa: E402
 
 CHUNK = 1024 * 1024
 
-NEW_B64 = base64.standard_b64encode(
-    (('https://127.0.0.1:4430/launch\n') * 2 + 'https://127.0.0.1:4430/launch').encode()).decode()
+NEW_B64 = mbpatch.NEW_LINES_B64
 
 
 def rd_lp(buf, off):
@@ -120,6 +119,30 @@ def main():
         assert p < len(dex) and dex[p] == 0, \
             'dex string #%d (off=%d) 无 NUL 终止 — ART 会拒载' % (i, off)
     print('[ok] dex: %d 条字符串全部 NUL 终止（ART 式走查通过）' % n_ids)
+
+    # ART 式 string_data 节**顺序链式走查**（CheckIntraSectionIterate 的真实行为）：
+    # 从 map 的 string_data 节起点按 item 链逐个解析，任何错位/死字节都会在这里暴露
+    map_off = struct.unpack_from('<I', dex, 52)[0]
+    map_size = struct.unpack_from('<I', dex, map_off)[0]
+    sd_off = sd_count = None
+    for k in range(map_size):
+        t, _unused, cnt, o = struct.unpack_from('<HHII', dex, map_off + 4 + 12 * k)
+        if t == 0x2002:                      # kDexTypeStringDataItem
+            sd_off, sd_count = o, cnt
+            break
+    assert sd_off is not None, 'map 中未找到 string_data 节'
+    p = sd_off
+    for i in range(sd_count):
+        size, p = _uleb(dex, p)
+        for _ in range(size):
+            b = dex[p]
+            p += 1 if b < 0x80 else (2 if b < 0xE0 else 3)
+        assert p < len(dex) and dex[p] == 0, \
+            'string_data 链第 %d 项错位/未终止（off=%d）— ART 会拒载' % (i, p)
+        p += 1
+    data_end = struct.unpack_from('<I', dex, 104)[0] + struct.unpack_from('<I', dex, 108)[0]
+    assert p <= data_end, 'string_data 链越过 data 节末尾 (%d > %d)' % (p, data_end)
+    print('[ok] dex: string_data 链式走查 %d 项全部对齐（ART 顺序校验通过）' % sd_count)
 
     # --- v2 签名块：取证书、验签 ---
     v2 = find_v2_block(data)
