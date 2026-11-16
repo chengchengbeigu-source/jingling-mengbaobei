@@ -1,0 +1,12 @@
+import re
+html = open('launch_page.html', encoding='utf-8', errors='replace').read()
+scripts = re.findall(r'<script[^>]*src=[\"\']([^\"\']+)[\"\']', html)
+print('script tags:')
+for s in scripts: print(' ', s)
+m = re.findall(r'(wss?://[^\"\'\s<>]+)', html)
+print('ws urls:', set(m))
+api = re.findall(r'[\"\'](/(?:sdk|api|pet)[^\"\']{2,80})[\"\']', html)
+print('sdk/api paths:', sorted(set(api))[:40])
+idx = html.find('pet05f')
+print('--- tail of html ---')
+print(html[-3000:])

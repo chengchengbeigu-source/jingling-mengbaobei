@@ -1,0 +1,901 @@
+## CLASS Ld;
+--- METHOD public static bridge synthetic a (Landroid/graphics/drawable/Icon;)I
+
+    public static bridge synthetic int a(android.graphics.drawable.Icon p0)
+    {
+        return p0.getResId();
+    }
+
+--- METHOD public static bridge synthetic b (Landroid/content/pm/PackageInfo;)Landroid/content/pm/SigningInfo;
+
+    public static bridge synthetic android.content.pm.SigningInfo b(android.content.pm.PackageInfo p0)
+    {
+        return p0.signingInfo;
+    }
+
+--- METHOD public static bridge synthetic c ()Ljava/lang/ClassLoader;
+
+    public static bridge synthetic ClassLoader c()
+    {
+        return android.webkit.WebView.getWebViewClassLoader();
+    }
+
+--- METHOD public static bridge synthetic d (Landroid/graphics/drawable/Icon;)Ljava/lang/String;
+
+    public static bridge synthetic String d(android.graphics.drawable.Icon p0)
+    {
+        return p0.getResPackage();
+    }
+
+--- METHOD public static bridge synthetic e (Landroid/content/pm/SigningInfo;)[Landroid/content/pm/Signature;
+
+    public static bridge synthetic android.content.pm.Signature[] e(android.content.pm.SigningInfo p0)
+    {
+        return p0.getApkContentsSigners();
+    }
+
+--- METHOD public static bridge synthetic f (Landroid/content/pm/PackageInfo;)Landroid/content/pm/SigningInfo;
+
+    public static bridge synthetic android.content.pm.SigningInfo f(android.content.pm.PackageInfo p0)
+    {
+        return p0.signingInfo;
+    }
+
+## CLASS Lf0;
+--- METHOD public synthetic constructor <init> (Ljava/lang/Object;)V
+
+    public synthetic f0(Object p1)
+    {
+        this.a = p1;
+        return;
+    }
+
+--- METHOD public constructor <init> (Ljava/util/ArrayList; Ljava/util/ArrayList; Lorg/chromium/support_lib_boundary/WebViewStartUpResultBoundaryInterface;)V
+
+    public f0(java.util.ArrayList p1, java.util.ArrayList p2, org.chromium.support_lib_boundary.WebViewStartUpResultBoundaryInterface p3)
+    {
+        this.a = p3;
+        return;
+    }
+
+--- METHOD public a ()[Ljava/lang/String;
+
+    public String[] a()
+    {
+        return ((org.chromium.support_lib_boundary.WebViewProviderFactoryBoundaryInterface) this.a).getSupportedFeatures();
+    }
+
+--- METHOD public b (Lv0; Ln0;)V
+
+    public void b(v0 p4, n0 p5)
+    {
+        ((org.chromium.support_lib_boundary.WebViewProviderFactoryBoundaryInterface) this.a).startUpWebView(new i(new f0(p4)), new i(new f0(new n0(p5, 1))));
+        return;
+    }
+
+--- METHOD public c (Lv0; Lf0;)V
+
+    public void c(v0 p4, f0 p5)
+    {
+        ((org.chromium.support_lib_boundary.WebViewProviderFactoryBoundaryInterface) this.a).startUpWebView(new u0(p4, 2), new u0(p5, 0), new u0(p5, 1));
+        return;
+    }
+
+--- METHOD public getBackgroundExecutor ()Ljava/util/concurrent/Executor;
+
+    public java.util.concurrent.Executor getBackgroundExecutor()
+    {
+        return ((v0) this.a).a;
+    }
+
+--- METHOD public getProfileNamesToLoad ()Ljava/util/Set;
+
+    public java.util.Set getProfileNamesToLoad()
+    {
+        return 0;
+    }
+
+--- METHOD public onSuccess (Ljava/lang/reflect/InvocationHandler;)V
+
+    public void onSuccess(reflect.InvocationHandler p5)
+    {
+        org.chromium.support_lib_boundary.WebViewStartUpResultBoundaryInterface v5_1;
+        f0 v0_0 = 0;
+        if (p5 != null) {
+            v5_1 = org.chromium.support_lib_boundary.WebViewStartUpResultBoundaryInterface.cast(reflect.Proxy.newProxyInstance(j.getClassLoader(), new Class[] {org.chromium.support_lib_boundary.WebViewStartUpResultBoundaryInterface}), p5));
+        } else {
+            v5_1 = 0;
+        }
+        org.chromium.support_lib_boundary.WebViewStartUpResultBoundaryInterface v5_2 = ((org.chromium.support_lib_boundary.WebViewStartUpResultBoundaryInterface) v5_1);
+        java.util.Objects.requireNonNull(v5_2);
+        f0 v1_0 = v5_2.getBlockingStartUpLocations();
+        java.util.ArrayList v2_1 = new java.util.ArrayList();
+        f0 v1_2 = v1_0.iterator();
+        while (v1_2.hasNext()) {
+            v1_2.next();
+            v2_1.add(new k());
+        }
+        if (r0.c.a()) {
+            f0 v0_1 = v5_2.getAsyncStartUpLocations();
+            f0 v1_6 = new java.util.ArrayList();
+            f0 v0_2 = v0_1.iterator();
+            while (v0_2.hasNext()) {
+                v0_2.next();
+                v1_6.add(new k());
+            }
+            v0_0 = v1_6;
+        }
+        ((n0) this.a).a(new f0(v2_1, v0_0, v5_2));
+        return;
+    }
+
+--- METHOD public shouldRunUiThreadStartUpTasks ()Z
+
+    public boolean shouldRunUiThreadStartUpTasks()
+    {
+        return 0;
+    }
+
+## CLASS Lf;
+--- METHOD static constructor <clinit> ()V
+
+    static f()
+    {
+        f.f = new java.security.SecureRandom();
+        return;
+    }
+
+--- METHOD public constructor <init> (Ljava/lang/String; Ljava/lang/String; Ljava/lang/String; Ljava/lang/String; [B)V
+
+    public f(String p1, String p2, String p3, String p4, byte[] p5)
+    {
+        this.a = p1;
+        this.b = p2;
+        this.c = p3;
+        this.d = p4;
+        this.e = ((byte[]) p5.clone());
+        return;
+    }
+
+--- METHOD public static a (Ljava/io/InputStream;)Ljava/lang/String;
+
+    public static String a(java.io.InputStream p6)
+    {
+        if (p6 != null) {
+            try {
+                Throwable v0_1 = new java.io.ByteArrayOutputStream();
+                try {
+                    java.io.IOException v1_7 = new byte[1024];
+                    int v3 = 0;
+                } catch (java.io.IOException v1_5) {
+                    try {
+                        v0_1.close();
+                    } catch (Throwable v0_2) {
+                        v1_5.addSuppressed(v0_2);
+                    }
+                    throw v1_5;
+                }
+                while(true) {
+                    int v4 = p6.read(v1_7);
+                    if (v4 >= 0) {
+                        v3 += v4;
+                        if (v3 > 16384) {
+                            break;
+                        }
+                        v0_1.write(v1_7, 0, v4);
+                    } else {
+                        java.io.IOException v1_4 = v0_1.toString(java.nio.charset.StandardCharsets.UTF_8.name());
+                        v0_1.close();
+                        p6.close();
+                        return v1_4;
+                    }
+                }
+                throw new java.io.IOException("APK bootstrap response is too large");
+            } catch (Throwable v0_3) {
+                try {
+                    p6.close();
+                } catch (Throwable v6_1) {
+                    v0_3.addSuppressed(v6_1);
+                }
+                throw v0_3;
+            }
+        } else {
+            return "";
+        }
+    }
+
+--- METHOD public final b ()Le;
+
+    public final e b()
+    {
+        String v1_0 = this.e;
+        if (v1_0.length < 32) {
+            java.net.HttpURLConnection v13_1 = new java.security.GeneralSecurityException;
+            v13_1("APK bootstrap secret is not configured");
+            throw v13_1;
+        } else {
+            boolean v7_9;
+            e v2_1 = (System.currentTimeMillis() / 1000);
+            String v4_11 = new byte[18];
+            f.f.nextBytes(v4_11);
+            String v4_12 = android.util.Base64.encodeToString(v4_11, 11);
+            String v6_3 = this.d;
+            String v8_0 = this.c;
+            String v9_0 = this.b;
+            if (!v6_3.isEmpty()) {
+                boolean v7_8 = new StringBuilder("v2\n");
+                v7_8.append(v9_0);
+                v7_8.append("\n");
+                v7_8.append(v8_0);
+                v7_8.append("\n");
+                v7_8.append(v6_3);
+                v7_8.append("\n");
+                v7_8.append(v2_1);
+                v7_8.append("\n");
+                v7_8.append(v4_12);
+                v7_9 = v7_8.toString();
+            } else {
+                boolean v7_11 = new StringBuilder("v1\n");
+                v7_11.append(v9_0);
+                v7_11.append("\n");
+                v7_11.append(v8_0);
+                v7_11.append("\n");
+                v7_11.append(v2_1);
+                v7_11.append("\n");
+                v7_11.append(v4_12);
+                v7_9 = v7_11.toString();
+            }
+            javax.crypto.Mac v11_2 = javax.crypto.Mac.getInstance("HmacSHA256");
+            v11_2.init(new javax.crypto.spec.SecretKeySpec(v1_0, "HmacSHA256"));
+            String v1_12 = java.nio.charset.StandardCharsets.UTF_8;
+            org.json.JSONObject v5_4 = android.util.Base64.encodeToString(v11_2.doFinal(v7_9.getBytes(v1_12)), 11);
+            boolean v7_15 = new org.json.JSONObject();
+            v7_15.put("packageName", v9_0);
+            v7_15.put("deviceId", v8_0);
+            if (!v6_3.isEmpty()) {
+                v7_15.put("registrationDeviceId", v6_3);
+            }
+            v7_15.put("timestamp", v2_1);
+            v7_15.put("nonce", v4_12);
+            v7_15.put("proof", v5_4);
+            String v1_13 = v7_15.toString().getBytes(v1_12);
+            java.net.HttpURLConnection v13_4 = ((java.net.HttpURLConnection) new java.net.URL(this.a).openConnection());
+            v13_4.setConnectTimeout(10000);
+            v13_4.setReadTimeout(15000);
+            v13_4.setInstanceFollowRedirects(0);
+            v13_4.setRequestMethod("POST");
+            v13_4.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            v13_4.setRequestProperty("Accept", "application/json");
+            v13_4.setRequestProperty("User-Agent", "MBGameApp/1.0");
+            v13_4.setDoOutput(1);
+            v13_4.setFixedLengthStreamingMode(v1_13.length);
+            String v4_5;
+            v13_4.getOutputStream().write(v1_13);
+            String v1_1 = v13_4.getResponseCode();
+            if ((v1_1 < 200) || (v1_1 >= 300)) {
+                v4_5 = v13_4.getErrorStream();
+            } else {
+                v4_5 = v13_4.getInputStream();
+            }
+            org.json.JSONObject v5_1 = new org.json.JSONObject(f.a(v4_5));
+            String v4_10 = v5_1.optString("status", "").trim();
+            String v6_2 = v5_1.optString("deviceCode", "").trim();
+            if (((v1_1 != 202) || (!"pending".equals(v4_10))) && ((v1_1 != 403) || (!"revoked".equals(v4_10)))) {
+                if (v1_1 != 200) {
+                    throw new java.io.IOException("APK bootstrap was rejected");
+                } else {
+                    String v1_5 = v5_1.optString("launchToken", "").trim();
+                    if ((!v5_1.optBoolean("ok", 0)) || (!v1_5.matches("[A-Za-z0-9_.-]{80,512}"))) {
+                        throw new java.io.IOException("APK bootstrap returned an invalid token");
+                    } else {
+                        e v2_6 = new e("approved", "", v1_5);
+                        v13_4.disconnect();
+                        return v2_6;
+                    }
+                }
+            } else {
+                if (!v6_2.matches("[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}")) {
+                    throw new java.io.IOException("APK bootstrap returned an invalid device code");
+                } else {
+                    String v1_11 = new e(v4_10, v6_2, "");
+                    v13_4.disconnect();
+                    return v1_11;
+                }
+            }
+        }
+    }
+
+## CLASS Li0;
+--- METHOD public constructor <init> (Ljava/lang/String;)V
+
+    public i0(String p4)
+    {
+        try {
+            String v4_3;
+            String v0_2 = new java.net.URI(String.valueOf(p4).trim());
+            this.a = v0_2;
+            String v4_7 = v0_2.getScheme();
+            String v1_0 = "";
+        } catch (String v3_1) {
+            throw new IllegalArgumentException("Invalid URL", v3_1);
+        }
+        if (v4_7 != null) {
+            v4_3 = v4_7.toLowerCase(java.util.Locale.ROOT);
+        } else {
+            v4_3 = "";
+        }
+        this.b = v4_3;
+        int v2_1 = v0_2.getHost();
+        if (v2_1 != 0) {
+            v1_0 = v2_1.toLowerCase(java.util.Locale.ROOT);
+        }
+        this.c = v1_0;
+        this.d = i0.a(v0_2);
+        if (((!"http".equals(v4_3)) && (!"https".equals(v4_3))) || ((v1_0.isEmpty()) || (v0_2.getUserInfo() != null))) {
+            String v3_8 = new IllegalArgumentException;
+            v3_8("The configured game URL is not a safe HTTP(S) origin");
+            throw v3_8;
+        } else {
+            return;
+        }
+    }
+
+--- METHOD public static a (Ljava/net/URI;)I
+
+    public static int a(java.net.URI p1)
+    {
+        if (p1.getPort() < 0) {
+            int v1_7;
+            int v1_6 = p1.getScheme();
+            if (v1_6 != 0) {
+                v1_7 = v1_6.toLowerCase(java.util.Locale.ROOT);
+            } else {
+                v1_7 = "";
+            }
+            if (!"http".equals(v1_7)) {
+                if (!"https".equals(v1_7)) {
+                    return -1;
+                } else {
+                    return 443;
+                }
+            } else {
+                return 80;
+            }
+        } else {
+            return p1.getPort();
+        }
+    }
+
+## CLASS Lj;
+--- METHOD static constructor <clinit> ()V
+
+    static j()
+    {
+        int[] v1 = new int[0];
+        j.a = v1;
+        Object[] v0_1 = new Object[0];
+        j.b = v0_1;
+        return;
+    }
+
+--- METHOD public static a ()Ljava/lang/reflect/InvocationHandler;
+
+    public static reflect.InvocationHandler a()
+    {
+        return ((reflect.InvocationHandler) Class.forName("org.chromium.support_lib_glue.SupportLibReflectionUtil", 0, j.b()).getDeclaredMethod("createWebViewProviderFactory", 0).invoke(0, 0));
+    }
+
+--- METHOD public static b ()Ljava/lang/ClassLoader;
+
+    public static ClassLoader b()
+    {
+        if (android.os.Build$VERSION.SDK_INT < 28) {
+            try {
+                NoSuchMethodException v0_7 = android.webkit.WebView.getDeclaredMethod("getFactory", 0);
+                v0_7.setAccessible(1);
+                return v0_7.invoke(0, 0).getClass().getClassLoader();
+            } catch (NoSuchMethodException v0_4) {
+                throw new RuntimeException(v0_4);
+            }
+        } else {
+            return d.c();
+        }
+    }
+
+--- METHOD public static c ([B Ljava/lang/String;)Z
+
+    public static boolean c(byte[] p6, String p7)
+    {
+        int v1 = 0;
+        if (p7.matches("[0-9a-f]{64}")) {
+            try {
+                boolean v6_4 = java.security.MessageDigest.getInstance("SHA-256").digest(p6);
+                String v0_2 = new StringBuilder(64);
+                int v2_1 = v6_4.length;
+            } catch (boolean v6_3) {
+                throw new IllegalStateException("SHA-256 is unavailable", v6_3);
+            }
+            while (v1 < v2_1) {
+                char v3_0 = v6_4[v1];
+                v0_2.append(Character.forDigit(((v3_0 & 255) >> 4), 16));
+                v0_2.append(Character.forDigit((v3_0 & 15), 16));
+                v1++;
+            }
+            return v0_2.toString().equals(p7);
+        } else {
+            return 0;
+        }
+    }
+
+## CLASS Lk;
+--- METHOD static constructor <clinit> ()V
+
+    static k()
+    {
+        String[] v0_1 = new String[0];
+        k.a = v0_1;
+        return;
+    }
+
+--- METHOD public a ()[Ljava/lang/String;
+
+    public String[] a()
+    {
+        return k.a;
+    }
+
+--- METHOD public b (Lv0; Ln0;)V
+
+    public void b(v0 p1, n0 p2)
+    {
+        this = new UnsupportedOperationException;
+        super("This should never happen, if this method was called it means we\'re trying to reach into WebView APK code on an incompatible device. This most likely means the current method is being called too early, or is being called on start-up rather than lazily");
+        throw super;
+    }
+
+--- METHOD public c (Lv0; Lf0;)V
+
+    public void c(v0 p1, f0 p2)
+    {
+        this = new UnsupportedOperationException;
+        super("This should never happen, if this method was called it means we\'re trying to reach into WebView APK code on an incompatible device. This most likely means the current method is being called too early, or is being called on start-up rather than lazily");
+        throw super;
+    }
+
+## CLASS Lm0;
+--- METHOD public synthetic constructor <init> (Ln0; Lf0;)V
+
+    public synthetic m0(n0 p2, f0 p3)
+    {
+        this.a = 1;
+        this.b = p2;
+        this.c = p3;
+        return;
+    }
+
+--- METHOD public synthetic constructor <init> (Lv0; Lf0; Landroid/content/Context;)V
+
+    public synthetic m0(v0 p1, f0 p2, android.content.Context p3)
+    {
+        this.a = 0;
+        this.b = p1;
+        this.c = p2;
+        return;
+    }
+
+--- METHOD public final run ()V
+
+    public final void run()
+    {
+        f0 v1_0 = this.c;
+        android.os.Handler v4_2 = this.b;
+        switch (this.a) {
+            case 0:
+                android.os.Handler v4_4 = ((v0) v4_2);
+                f0 v1_2 = ((f0) v1_0);
+                j.b();
+                if (!r0.a.a()) {
+                    if (!r0.b.a()) {
+                        android.os.Handler v4_1 = new android.os.Handler;
+                        v4_1(android.os.Looper.getMainLooper());
+                        v4_1.post(new o0(v1_2));
+                    } else {
+                        s0.a.b(v4_4, new n0(v1_2, 0));
+                    }
+                } else {
+                    s0.a.c(v4_4, v1_2);
+                }
+                return;
+            default:
+                ((n0) v4_2).a(((f0) v1_0));
+                return;
+        }
+    }
+
+## CLASS Lm;
+--- METHOD public static bridge synthetic a ()I
+
+    public static bridge synthetic int a()
+    {
+        return android.view.WindowInsets$Type.statusBars();
+    }
+
+--- METHOD public static bridge synthetic b (Landroid/view/View;)Landroid/view/WindowInsetsController;
+
+    public static bridge synthetic android.view.WindowInsetsController b(android.view.View p0)
+    {
+        return p0.getWindowInsetsController();
+    }
+
+--- METHOD public static bridge synthetic c (Landroid/view/Window;)V
+
+    public static bridge synthetic void c(android.view.Window p1)
+    {
+        p1.setDecorFitsSystemWindows(0);
+        return;
+    }
+
+--- METHOD public static bridge synthetic d (Landroid/view/WindowInsetsController;)V
+
+    public static bridge synthetic void d(android.view.WindowInsetsController p1)
+    {
+        p1.setSystemBarsBehavior(2);
+        return;
+    }
+
+--- METHOD public static bridge synthetic e (Landroid/view/WindowInsetsController; I)V
+
+    public static bridge synthetic void e(android.view.WindowInsetsController p0, int p1)
+    {
+        p0.hide(p1);
+        return;
+    }
+
+--- METHOD public static bridge synthetic f ()I
+
+    public static bridge synthetic int f()
+    {
+        return android.view.WindowInsets$Type.navigationBars();
+    }
+
+## CLASS Ln;
+--- METHOD public static bridge synthetic a (Lcom/localfirst/mb/MainActivity;)Landroid/window/OnBackInvokedDispatcher;
+
+    public static bridge synthetic android.window.OnBackInvokedDispatcher a(com.localfirst.mb.MainActivity p0)
+    {
+        return p0.getOnBackInvokedDispatcher();
+    }
+
+--- METHOD public static bridge synthetic b (Landroid/window/OnBackInvokedDispatcher; Lr;)V
+
+    public static bridge synthetic void b(android.window.OnBackInvokedDispatcher p1, r p2)
+    {
+        p1.registerOnBackInvokedCallback(0, p2);
+        return;
+    }
+
+## CLASS Lo;
+--- METHOD public synthetic constructor <init> (Lcom/localfirst/mb/MainActivity; [I)V
+
+    public synthetic o(com.localfirst.mb.MainActivity p1, int[] p2)
+    {
+        this.a = p1;
+        this.b = p2;
+        return;
+    }
+
+--- METHOD public final onClick (Landroid/content/DialogInterface; I)V
+
+    public final void onClick(android.content.DialogInterface p3, int p4)
+    {
+        android.content.SharedPreferences$Editor v3_0 = this.b;
+        com.localfirst.mb.MainActivity v2_1 = this.a;
+        if (v3_0[0] != v2_1.h) {
+            v2_1.k.incrementAndGet();
+            v2_1.i = 0;
+            v2_1.b();
+            android.content.SharedPreferences$Editor v3_1 = v3_0[0];
+            v2_1.h = v3_1;
+            v2_1.f = new i0(v2_1.g[v3_1]);
+        }
+        v2_1.getSharedPreferences("apk_access", 0).edit().putString("game_line", v2_1.g[v2_1.h]).apply();
+        v2_1.d();
+        return;
+    }
+
+## CLASS Lp;
+--- METHOD public synthetic constructor <init> (Lcom/localfirst/mb/MainActivity; Z)V
+
+    public synthetic p(com.localfirst.mb.MainActivity p1, boolean p2)
+    {
+        this.a = p1;
+        this.b = p2;
+        return;
+    }
+
+--- METHOD public final onClick (Landroid/content/DialogInterface; I)V
+
+    public final void onClick(android.content.DialogInterface p1, int p2)
+    {
+        if (this.b) {
+            this.a.finish();
+        }
+        return;
+    }
+
+## CLASS Lq;
+--- METHOD public synthetic constructor <init> (Lcom/localfirst/mb/MainActivity; Z)V
+
+    public synthetic q(com.localfirst.mb.MainActivity p1, boolean p2)
+    {
+        this.a = p1;
+        this.b = p2;
+        return;
+    }
+
+--- METHOD public final onCancel (Landroid/content/DialogInterface;)V
+
+    public final void onCancel(android.content.DialogInterface p1)
+    {
+        if (this.b) {
+            this.a.finish();
+        }
+        return;
+    }
+
+## CLASS Lr;
+--- METHOD public synthetic constructor <init> (Lcom/localfirst/mb/MainActivity;)V
+
+    public synthetic r(com.localfirst.mb.MainActivity p1)
+    {
+        this.a = p1;
+        return;
+    }
+
+--- METHOD public final onBackInvoked ()V
+
+    public final void onBackInvoked()
+    {
+        android.webkit.WebView v1_1 = this.a;
+        boolean v0_0 = v1_1.b;
+        if ((!v0_0) || (!v0_0.canGoBack())) {
+            v1_1.finish();
+            return;
+        } else {
+            v1_1.b.goBack();
+            return;
+        }
+    }
+
+## CLASS Ls;
+--- METHOD public synthetic constructor <init> (Lcom/localfirst/mb/MainActivity; I)V
+
+    public synthetic s(com.localfirst.mb.MainActivity p1, int p2)
+    {
+        this.a = p2;
+        this.b = p1;
+        return;
+    }
+
+--- METHOD public final onClick (Landroid/view/View;)V
+
+    public final void onClick(android.view.View p1)
+    {
+        com.localfirst.mb.MainActivity v0_1 = this.b;
+        switch (this.a) {
+            case 0:
+                v0_1.d();
+                return;
+            default:
+                v0_1.f(0);
+                return;
+        }
+    }
+
+## CLASS Lt;
+--- METHOD public synthetic constructor <init> (Lcom/localfirst/mb/MainActivity; Lf; I Ljava/lang/String;)V
+
+    public synthetic t(com.localfirst.mb.MainActivity p1, f p2, int p3, String p4)
+    {
+        this.a = p1;
+        this.b = p2;
+        this.c = p3;
+        this.d = p4;
+        return;
+    }
+
+--- METHOD public final run ()V
+
+    public final void run()
+    {
+        com.localfirst.mb.MainActivity v0 = this.a;
+        int v2 = this.c;
+        String v5_7 = this.d;
+        try {
+            u v1_4 = this.b.b();
+        } catch (Exception) {
+            String v5_8 = new v;
+            v5_8(v0, v2);
+            v0.runOnUiThread(v5_8);
+            return;
+        }
+        if ("approved".equals(v1_4.a)) {
+            v0.runOnUiThread(new u(v0, v2, android.net.Uri.parse(v5_7).buildUpon().appendQueryParameter("apkToken", v1_4.c).build().toString(), 1));
+            return;
+        } else {
+            String v5_6 = new u;
+            v5_6(v0, v2, v1_4, 0);
+            v0.runOnUiThread(v5_6);
+            return;
+        }
+    }
+
+## CLASS Lu;
+--- METHOD public synthetic constructor <init> (Lcom/localfirst/mb/MainActivity; I Ljava/lang/Object; I)V
+
+    public synthetic u(com.localfirst.mb.MainActivity p1, int p2, Object p3, int p4)
+    {
+        this.a = p4;
+        this.b = p1;
+        this.c = p2;
+        this.d = p3;
+        return;
+    }
+
+--- METHOD public final run ()V
+
+    public final void run()
+    {
+        int v1_0 = 0;
+        int v2_0 = this.d;
+        android.widget.TextView v3_2 = this.c;
+        android.widget.LinearLayout v8_2 = this.b;
+        switch (this.a) {
+            case 0:
+                int v2_6 = ((e) v2_0);
+                if ((v3_2 == v8_2.k.get()) && ((!v8_2.isFinishing()) && (!v8_2.isDestroyed()))) {
+                    android.widget.Toast v0_26;
+                    if (!"revoked".equals(v2_6.a)) {
+                        v0_26 = 2131361795;
+                    } else {
+                        v0_26 = 2131361796;
+                    }
+                    v8_2.e.setText(v8_2.getString(v0_26, new Object[] {v2_6.b})));
+                    v8_2.c.setVisibility(8);
+                    android.widget.Toast v0_29 = v8_2.b;
+                    if (v0_29 != null) {
+                        v0_29.setVisibility(4);
+                    }
+                    v8_2.d.setVisibility(0);
+                }
+                return;
+            default:
+                int v2_5 = ((String) v2_0);
+                if ((v3_2 == v8_2.k.get()) && ((!v8_2.isFinishing()) && (!v8_2.isDestroyed()))) {
+                    if (v8_2.b == null) {
+                        android.webkit.WebView.setWebContentsDebuggingEnabled(0);
+                        android.widget.Toast v0_36 = new android.webkit.WebView(v8_2);
+                        v8_2.b = v0_36;
+                        v0_36.setBackgroundColor(-16777216);
+                        v8_2.b.setFilterTouchesWhenObscured(0);
+                        v8_2.a.addView(v8_2.b, 0, new android.widget.FrameLayout$LayoutParams(-1, -1));
+                        android.widget.Toast v0_40 = v8_2.b.getSettings();
+                        v0_40.setJavaScriptEnabled(1);
+                        v0_40.setDomStorageEnabled(1);
+                        v0_40.setDatabaseEnabled(1);
+                        v0_40.setAllowContentAccess(0);
+                        v0_40.setAllowFileAccess(0);
+                        v0_40.setAllowFileAccessFromFileURLs(0);
+                        v0_40.setAllowUniversalAccessFromFileURLs(0);
+                        v0_40.setJavaScriptCanOpenWindowsAutomatically(0);
+                        v0_40.setSupportMultipleWindows(0);
+                        v0_40.setBuiltInZoomControls(0);
+                        v0_40.setDisplayZoomControls(0);
+                        v0_40.setSaveFormData(0);
+                        v0_40.setGeolocationEnabled(0);
+                        v0_40.setMixedContentMode(1);
+                        v0_40.setCacheMode(-1);
+                        boolean v5_10 = new StringBuilder();
+                        v5_10.append(v0_40.getUserAgentString());
+                        v5_10.append(" MBGameApp/1.0");
+                        v0_40.setUserAgentString(v5_10.toString());
+                        boolean v5_0 = android.os.Build$VERSION.SDK_INT;
+                        if (v5_0 >= 26) {
+                            c.b(v0_40);
+                        }
+                        android.widget.Toast v0_6;
+                        android.widget.Toast v0_2 = android.webkit.CookieManager.getInstance();
+                        v0_2.setAcceptCookie(1);
+                        v0_2.setAcceptThirdPartyCookies(v8_2.b, 0);
+                        v8_2.b.setDownloadListener(new w(v8_2));
+                        v8_2.b.setWebViewClient(new a0(v8_2));
+                        v8_2.b.setWebChromeClient(new y(v8_2));
+                        if (v5_0 < 26) {
+                            try {
+                                v0_6 = p0.a();
+                            } catch (NoSuchMethodException) {
+                                v0_6 = 0;
+                            }
+                        } else {
+                            v0_6 = c.a();
+                        }
+                        if (v0_6 == null) {
+                            try {
+                                android.widget.Toast v0_12 = ((String) Class.forName("android.webkit.WebViewUpdateService").getMethod("getCurrentWebViewPackageName", 0).invoke(0, 0));
+                            } catch (android.content.pm.PackageManager$NameNotFoundException) {
+                                v0_6 = 0;
+                            }
+                            if (v0_12 != null) {
+                                v0_6 = v8_2.getPackageManager().getPackageInfo(v0_12, 0);
+                            }
+                        }
+                        if (v0_6 != null) {
+                            android.widget.Toast v0_13 = v0_6.versionName;
+                            if (v0_13 != null) {
+                                android.widget.Toast v0_14 = v0_13.trim();
+                                boolean v5_4 = v0_14.indexOf(46);
+                                if (v5_4) {
+                                    v0_14 = v0_14.substring(0, v5_4);
+                                }
+                                if (v0_14.matches("[0-9]{1,4}")) {
+                                    v1_0 = Integer.parseInt(v0_14);
+                                }
+                            }
+                        }
+                        if ((v1_0 > 0) && (v1_0 < 120)) {
+                            android.widget.Toast.makeText(v8_2, v8_2.getString(2131361807, new Object[] {Integer.valueOf(v1_0), Integer.valueOf(120)})), 1).show();
+                        }
+                    }
+                    android.widget.Toast v0_21 = v8_2.i;
+                    if ((v0_21 == null) || (v8_2.b.restoreState(v0_21) == null)) {
+                        v8_2.b.loadUrl(v2_5);
+                    }
+                    v8_2.i = 0;
+                }
+                return;
+        }
+    }
+
+## CLASS Lv0;
+--- METHOD public constructor <init> (Ljava/util/concurrent/ExecutorService;)V
+
+    public v0(java.util.concurrent.ExecutorService p1)
+    {
+        this.a = p1;
+        return;
+    }
+
+## CLASS Lw;
+--- METHOD public synthetic constructor <init> (Lcom/localfirst/mb/MainActivity;)V
+
+    public synthetic w(com.localfirst.mb.MainActivity p1)
+    {
+        this.a = p1;
+        return;
+    }
+
+--- METHOD public final onDownloadStart (Ljava/lang/String; Ljava/lang/String; Ljava/lang/String; Ljava/lang/String; J)V
+
+    public final void onDownloadStart(String p1, String p2, String p3, String p4, long p5)
+    {
+        android.widget.Toast.makeText(this.a, 2131361804, 0).show();
+        return;
+    }
+
+## CLASS Lx;
+--- METHOD public synthetic constructor <init> ([I)V
+
+    public synthetic x(int[] p1)
+    {
+        this.a = p1;
+        return;
+    }
+
+--- METHOD public final onClick (Landroid/content/DialogInterface; I)V
+
+    public final void onClick(android.content.DialogInterface p1, int p2)
+    {
+        this.a[0] = p2;
+        return;
+    }
+
