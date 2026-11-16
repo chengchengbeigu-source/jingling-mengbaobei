@@ -140,3 +140,70 @@ Sang_rIvZNZf1bJkOwkLsC0bOKMll7oY-Juw81rzhZK_h1rgBx5cgl-jZ5GTSKdv
 线路 URL 在 DEX 中是 Base64 常量。构造**等长**的 Base64 串（明文用无意义 query 参数填充到精确字节数），
 原地字节替换，所有 DEX 偏移不变。
 
+
+### 3.4 APK 原地补丁流程（tools/patch_apk.py）
+
+```
+1. 复制设备上已安装的 base.apk（保持 zip 原始布局，不重打包）
+2. 替换 res/yo.der          → 本地 CA 公钥证书 (DER, 原地等长/或用 zip 局部重写)
+3. 替换 DEX 中线路 Base64    → https://127.0.0.1:4430/launch (等长填充)
+4. push 回设备原路径 + 修复权限/SELinux 上下文
+   (不改 AndroidManifest, 不动签名块, 不触发重装校验)
+```
+
+注: zip 条目替换需保持压缩方式与 CRC 一致性 —— 本实现直接重写该条目的
+local header + central directory 记录，其余字节不动；大小变化通过
+中央目录偏移修正处理。
+
+### 3.5 本地服务端（server/）
+
+| 端点 | 行为 |
+|---|---|
+| `POST /apk/bootstrap` | 校验 proof（同一 HMAC 密钥）→ 200 + launchToken |
+| `GET /launch?apkToken=` | 种 `mb_apk_session` cookie → 302 /launch |
+| `GET /launch` (带 cookie) | 302 → `/pet05f/index.html?...&serverIp=127.0.0.1:20311&vvv=1&...` |
+| `GET /pet05f/*` | 本地静态镜像；缺失文件实时反代源站并缓存 |
+| `WSS :20311` | WebSocket 反代 → `mcbtc.cn:20311`（保留游戏联机功能） |
+| `:4430` TLS | 本地 CA 签发的证书, SAN=[127.0.0.1, localhost, mcbtc.cn, nalanquede.top, nalanquede.cn] |
+
+### 3.6 改装 APK 的 WebView 拦截兼容性
+
+MainActivity.e() 只放行与线路 origin 完全一致的 URL：
+
+```
+scheme = https, host = 127.0.0.1, port = 4430  → 与 dex 内新线路一致 ✓
+```
+
+WebView 直连 `https://127.0.0.1:4430` 要求证书对 `127.0.0.1` 有效 →
+本地 CA 的 SAN 必须包含 `127.0.0.1` 与 `localhost`（Android WebView 对 IP 直接连
+按 IP 校验 SAN，需要 iPAddress:127.0.0.1 条目）。
+
+## 4. 完整时间线
+
+| 日期 | 事件 |
+|---|---|
+| 2026-10-27 | 私有根 CA 创建（30 天前） |
+| 2026-11-04 | 服务器叶子证书签发（12 天前） |
+| 2026-11-16 (今天) | APK v1.1.4 样本获取, 完成逆向 |
+| 版本标记 | `mbpatch=20261116-island-capacity-league-reward-v513`（服务端热更标记, 与本地分析同日） |
+
+## 5. 法律与边界声明
+
+- 本项目仅用于对**用户自己拥有并已付费/运营授权**的 H5 游戏服务进行本地化部署、
+  网络调试、存档研究与学术分析。
+- 逆向产物（报告、补丁工具、服务端）**不得**用于：
+  - 运营面向第三方的盗版服务器
+  - 破坏原服务（DoS、账号盗取、数据篡改）
+  - 任何商业用途
+- 原游戏的美术资源、代码、商标属于原作者；反代/镜像仅限个人本地缓存用途。
+- WebSocket 代理保留原服务器联机功能时，遵守原服务的用户协议。
+
+## 6. 仓库结构
+
+```
+docs/RE-analysis.md   ← 本报告
+tools/patch_apk.py    ← APK 原地补丁工具（dex 线路 + CA 替换）
+tools/gen_certs.sh    ← 本地 CA / 服务器证书生成
+server/mbserver.py    ← 本地私服 (HTTPS + WS 代理)
+server/pem/           ← 证书目录 (生成产物)
+```
