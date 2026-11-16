@@ -1,11 +1,1 @@
-{
- "123": {
-  "roleId": 100001,
-  "lev": 1,
-  "created": 1794861547,
-  "name": "小萌新",
-  "face_id": 3,
-  "faceID": 3,
-  "init_faceID": 3
- }
-}
+{}

@@ -304,7 +304,7 @@ class Handler(BaseHTTPRequestHandler):
         if 'mb_apk_session=' in ck:
             # 已有会话 → 进入游戏页 (serverIp 指向本地 WS 隧道)
             qs = urlencode({
-                'scid': '11', 'sdkcname': 'H5_quikSDK', '_platform_': '304',
+                'scid': '11', 'sdkcname': 'H5_LocalSDK', '_platform_': '304',
                 'channel_id': '100304', 'game_channel_id': '100304',
                 'protocal': 'ws', 'serverIp': '127.0.0.1:20311',
                 'vvv': '1', 'vv': '20260327', 'bgurl': 'loading_newyear2.jpg',
