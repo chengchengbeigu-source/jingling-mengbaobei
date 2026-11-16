@@ -44,16 +44,23 @@ _JS_ANCHOR = 'cc.log("sdk init successful")})},'
 _JS_PATCHED = ('cc.log("sdk init successful");'
                'setTimeout(function(){'
                'try{localStorage.setItem("agree4Provacy","true")}catch(e){}'
-               'try{var s=window._loginState;if(s&&s.loginContainer&&s.loginContainer.nameText){'
+               'var n=0,li=setInterval(function(){try{var s=window._loginState;'
+               'if(s&&s.loginContainer&&s.loginContainer.nameText){clearInterval(li);'
                's.loginContainer.nameText.setText("123");s.loginContainer.passText.setText("123");'
-               's._onLoginBtn();cc.log("MB autologin fired")}}catch(e){cc.log("MB autologin err "+e)}'
-               'var n=0,t=setInterval(function(){try{var ss=window._selectServerState;'
+               's._onLoginBtn();cc.log("MB autologin fired")}'
+               'else if(++n>240){clearInterval(li);cc.log("MB autologin timeout")}}'
+               'catch(e){}},500);'
+               'var m=0,t=setInterval(function(){try{var ss=window._selectServerState;'
                'if(ss&&ss.serverId&&ss._onEnterBtn){clearInterval(t);'
                'try{ss.privacyBtn&&ss.privacyBtn.setSelected(!0)}catch(e){}'
                'try{localStorage.setItem("agree4Provacy","true")}catch(e){}'
                'ss._onEnterBtn();cc.log("MB autoenter fired server="+ss.serverId)}'
-               'else if(++n>60){clearInterval(t);cc.log("MB autoenter timeout")}}'
-               'catch(e){clearInterval(t);cc.log("MB autoenter err "+e)}},500)},4000)})},')
+               'else if(++m>600){clearInterval(t);cc.log("MB autoenter timeout")}}'
+               'catch(e){clearInterval(t);cc.log("MB autoenter err "+e)}},500);'
+               'setInterval(function(){try{var ga=(typeof GameLaunch!=="undefined")&&GameLaunch?GameLaunch._gameApp:null;'
+               'if(ga&&ga._loadOk&&!ga._netOk&&window.__LOCAL_GAME_ENTER_STARTED_AT__&&'
+               'Date.now()-window.__LOCAL_GAME_ENTER_STARTED_AT__>6000){'
+               'ga._netOk=!0;ga.starGame();cc.log("MB force starGame fired")}}catch(e){}},1000)},4000)})},')
 
 def apply_runtime_patches(rel, data):
     """按请求路径对镜像内容打补丁；返回 bytes。对已打补丁的内容幂等。"""
@@ -80,6 +87,7 @@ def apply_runtime_patches(rel, data):
 # ---------- 本地账号体系（游戏页 /demo/* 契约） ----------
 ACCOUNTS_FILE = os.path.join(HERE, 'accounts.json')
 ACC_LOCK = threading.Lock()
+_STATE = {'force_refresh': True}   # 一次性引导客户端刷新页面（拿到最新 JS 补丁）
 
 def _load_accounts():
     try:
@@ -220,6 +228,17 @@ class Handler(BaseHTTPRequestHandler):
             return self._demo_local_get(path)   # 默认本地：全关校验，直接可玩
         if path.startswith('/pet05f/') or path.startswith('/sdkapi00.quicksdk.net/') or path == '/favicon.ico':
             return self._asset(path, u.query)
+        if path == '/client-version':
+            # 引导客户端刷新页面：存在 FORCE_REFRESH 标记文件时返回与页面不同的
+            # staticPatchVersion，页面会弹“检测到游戏资源已更新”浮层，点刷新后
+            # 重载页面拿到最新 JS；随后（或标记不存在时）回显客户端版本避免循环弹窗。
+            client_v = (parse_qs(u.query).get('client') or [''])[0]
+            flag = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'FORCE_REFRESH')
+            if _STATE.get('force_refresh') and os.path.isfile(flag):
+                try: os.remove(flag)
+                except OSError: pass
+                return self._send(200, json.dumps({'ok': True, 'staticPatchVersion': 'force-refresh-%d' % int(time.time())}).encode(), 'application/json')
+            return self._send(200, json.dumps({'ok': True, 'staticPatchVersion': client_v or '20261116-qq-membership-login-v514'}).encode(), 'application/json')
         if path.startswith('/client-'):       # 埋点（GET 形式）
             return self._send(200, b'{"ok":true}', 'application/json')
         return self._send(404, b'not found', 'text/plain')
@@ -363,6 +382,8 @@ class Handler(BaseHTTPRequestHandler):
         # 1) 本地镜像
         rel = path.lstrip('/')
         if '..' in rel: return self._send(400, b'bad path', 'text/plain')
+        if rel.endswith('index.html'):
+            _STATE['page_reloaded'] = True   # 页面已重新加载，撤销强制刷新引导
         local = os.path.join(MIRROR, rel)
         if not os.path.isfile(local):
             self._fetch_origin(path, query, local)
